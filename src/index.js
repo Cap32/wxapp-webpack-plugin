@@ -6,7 +6,7 @@ import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { ProvidePlugin, DefinePlugin } from 'webpack';
 
 export default class WXAppPlugin {
-	constructor(options) {
+	constructor(options = {}) {
 		this.options = options || {};
 		this._filesToWrite = [];
 	}
@@ -41,9 +41,9 @@ export default class WXAppPlugin {
 		this._filesToWrite.push({ path, content });
 	}
 
-	getEntryBase(compiler) {
-		const { options } = this;
-		if (options.base) { return resolve(options.base); }
+	getBase(compiler) {
+		const { base } = this.options;
+		if (base) { return resolve(base); }
 
 		const { options: compilerOptions } = compiler;
 		const { context, entry } = compilerOptions;
@@ -81,11 +81,18 @@ export default class WXAppPlugin {
 	}
 
 	applyPlugins(compiler) {
-		const { options } = this;
-		const globalInjectName = options.globalInjectName || '__wxapp_webpack__';
+		const {
+			globalInjectName: globalInjectNameOption,
+		} = this.options;
+		const globalInjectName = globalInjectNameOption || '__wxapp_webpack__';
 
-		const { output } = compiler.options;
-		const base = this.getEntryBase(compiler);
+		const { options } = compiler;
+		const { output, target } = options;
+		const base = this.getBase(compiler);
+
+		if (target !== 'node') {
+			throw new Error('webpack config `target` must be "node"');
+		}
 
 		const providedModule = resolve(base, '__wx_pages__.js');
 
