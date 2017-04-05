@@ -7,7 +7,6 @@ export default {
 	output: {
 		filename: 'index.js',
 		path: path.resolve(__dirname, 'dist'),
-		libraryTarget: 'commonjs-module',
 	},
 	target: 'node',
 	module: {

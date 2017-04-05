@@ -32,6 +32,7 @@ export default class WXAppPlugin {
 					console.error(err);
 				}
 			});
+			this._filesToWrite = [];
 			callback(null, compilation);
 		});
 	}
