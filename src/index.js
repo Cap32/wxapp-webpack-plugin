@@ -1,72 +1,90 @@
 
-import { isString, isObject, isArray, find } from 'lodash';
-import { basename } from 'path';
-import { ConcatSource } from 'webpack-sources';
+import { readFileSync, writeFileSync, ensureDirSync } from 'fs-extra';
+import { basename, resolve, dirname } from 'path';
 import VirtualModuleWebpackPlugin from 'virtual-module-webpack-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { ProvidePlugin, DefinePlugin } from 'webpack';
-import SingleEntryDependency from 'webpack/lib/dependencies/SingleEntryDependency';
-
-const isAppJs = (filename) => basename(filename) === 'app.js';
-
-const parseEntry = (options) => {
-	// let appJS;
-	// let replace;
-	// const entry = options.entry;
-	// if (isString(entry)) {
-	// 	if (isAppJs(entry)) {
-	// 		appJS = entry;
-	// 		replace = (modulePath) => options.entry = modulePath;
-	// 	}
-	// }
-	// else if (isObject(entry)) {
-	// 	appJS = find(entry, (filename) => {
-	// 		if (isArray(filename)) {
-	// 			filename = filename[filename.length - 1];
-	// 		}
-	// 		return isAppJs(filename);
-	// 	});
-
-	// }
-
-	options.entry.index.push(
-		// './src/pages/index/index.js',
-		// './src/pages/logs/logs.js',
-
-		// './src/pages'
-	);
-};
-
-// console.log('typeof dependencies', typeof SingleEntryDependency);
 
 export default class WXAppPlugin {
 	constructor(options) {
-		this.options = options;
+		this.options = options || {};
+		this._filesToWrite = [];
 	}
 
 	apply(compiler) {
-		// compiler.plugin('before-compile', (compilationParams) => {
-		// 	console.log(compilationParams);
-		// });
-
-		const copy = new CopyWebpackPlugin(
-			[{ from: 'src' }],
-			{ ignore: ['**/*.js'] },
-		);
-
-
-		const virtualModule = new VirtualModuleWebpackPlugin({
-			moduleName: 'src/pages',
-			contents: '' +
-				'global.__wxapp_webpack__ = {' +
-					'index: () => require("./pages/index/index"),' +
-					'logs: () => require("./pages/logs/logs"),' +
-				'};' +
-				'module.exports = __WX_APP_FUNCTION__',
+		compiler.plugin('run', (compiler, callback) => {
+			this.applyPlugins(compiler);
+			callback();
 		});
 
+		compiler.plugin('watch-run', (compiler, callback) => {
+			this.applyPlugins(compiler.compiler);
+			callback();
+		});
+
+		compiler.plugin('after-emit', (compilation, callback) => {
+			this._filesToWrite.forEach(({ path, content }) => {
+				try {
+					ensureDirSync(dirname(path));
+					writeFileSync(path, content, 'utf8');
+				}
+				catch (err) {
+					console.error(err);
+				}
+			});
+			callback(null, compilation);
+		});
+	}
+
+	addFileToWrite(path, content) {
+		this._filesToWrite.push({ path, content });
+	}
+
+	applyPlugins(compiler) {
+		const { options } = this;
+		const globalInjectName = options.globalInjectName || '__wxapp_webpack__';
+
+		const { context, output } = compiler.options;
+		const base = resolve(options.base) || context;
+
+		const providedModule = resolve(base, '__wx_pages__.js');
+
+		const appJSONFile = resolve(base, 'app.json');
+		const appJSONStr = readFileSync(appJSONFile, 'utf8');
+		const { pages } = JSON.parse(appJSONStr);
+
+		const resolveOutputFile = (file) => {
+			if (!/\.js$/.test(file)) { file += '.js'; }
+			return resolve(output.path, file);
+		};
+
+		const pagesCode = pages.map((pagePathname) => {
+			const page = basename(pagePathname, '.js');
+			const outputPageFile = resolveOutputFile(pagePathname);
+			const pageContent = `global.${globalInjectName}.${page}();`;
+			this.addFileToWrite(outputPageFile, pageContent);
+			return `"${page}": function () { require("./${pagePathname}"); }`;
+		}).join(',');
+
+		const outputAppFile = resolveOutputFile('app.js');
+		const appContent = `require("./${output.filename}");`;
+		this.addFileToWrite(outputAppFile, appContent);
+
+		const virtualModule = new VirtualModuleWebpackPlugin({
+			moduleName: providedModule,
+			contents:
+				`global.${globalInjectName} = {\n\t${pagesCode}\n};` +
+				'module.exports = __WX_APP_FUNCTION__'
+			,
+		});
+
+		const copy = new CopyWebpackPlugin(
+			[{ from: base }],
+			{ ignore: ['**/*.js', '.*'] },
+		);
+
 		const provide = new ProvidePlugin({
-			App: '/Users/webber/www/node/wxapp-webpack-plugin/test/src/pages',
+			App: providedModule,
 		});
 
 		const define = new DefinePlugin({
@@ -77,86 +95,5 @@ export default class WXAppPlugin {
 		compiler.apply(virtualModule);
 		compiler.apply(provide);
 		compiler.apply(define);
-
-		// compiler.plugin('normal-module-factory', (nmf) => {
-		// 	nmf.plugin('after-resolve', (data, callback) => {
-		// 		if (data.resource === '/Users/webber/www/node/wxapp-webpack-plugin/test/src/app.js' && data.dependencies[0] instanceof SingleEntryDependency) {
-		// 			data.resource = '/Users/webber/www/node/wxapp-webpack-plugin/test/src/pages';
-		// 		}
-		// 		callback(null, data);
-		// 	});
-		// });
-
-		// compiler.plugin('compilation', (compilation, params) => {
-		// 	params.normalModuleFactory.plugin('parser', (parser) => {
-		// 		parser.plugin('call App', (expr) => {
-		// 			console.log('call App()', expr);
-		// 			return false;
-		// 		});
-		// 	});
-		// });
-
-		// compiler.plugin('compilation', (compilation) => {
-		// 	// console.log('compilation', compilation);
-
-		// 	compilation.plugin('normal-module-loader', (loaderContext, module) => {
-		// 		// if (/logs\.js$/.test(module.resource)) {
-		// 		// 	console.log('module', module._source._value);
-		// 		// }
-		// 	});
-
-		// 	// compilation.plugin('optimize-tree', (chunks, modules) => {
-		// 	// 	modules.forEach((module) => {
-		// 	// 		if (/logs\.js$/.test(module.resource)) {
-		// 	// 			console.log('module', module._source._value);
-		// 	// 		}
-		// 	// 	});
-		// 	// });
-
-		// 	compilation.plugin('optimize-modules', (modules) => {
-		// 		modules.forEach((module) => {
-		// 			if (/pages\/(logs\/logs|index\/index)\.js$/.test(module.resource)) {
-		// 				// const { _source } = module;
-		// 				// const { _value } = _source;
-		// 				// _source._value = `             module.exports = function () {\n${_value}\n};`;
-		// 				// console.log('module', module._source._value);
-		// 				// console.log('module', module);
-		// 				// console.log('module', module);
-		// 			}
-		// 		});
-		// 	});
-
-		// 	compilation.plugin("optimize-chunk-assets", (chunks, callback) => {
-		// 		chunks.forEach((chunk) => {
-
-		// 			// console.log('chunk', chunk.entryModule.dependencies);
-
-		// 			if (!chunk.isInitial()) { return; }
-
-		// 			// chunk.entryModule.dependencies.forEach((module) => {
-		// 			// 	module.chunks
-		// 			// })
-
-		// 			// console.log('compilation.assets[file]', compilation.assets[chunk.files[0]]);
-
-		// 			// chunk.files
-		// 			// 	.filter((file) => console.log(file) || true)
-		// 			// 	.forEach((file) =>
-		// 			// 		compilation.assets[file] = new ConcatSource(
-		// 			// 			'/*CAP32*/\n',
-		// 			// 			'require("./src/pages/index/index.js");\n',
-		// 			// 			'module.exports = function () {',
-		// 			// 			'\n',
-		// 			// 			compilation.assets[file],
-		// 			// 			'\n',
-		// 			// 			'};',
-		// 			// 		)
-		// 			// 	)
-		// 			// ;
-		// 		});
-		// 		callback();
-		// 	});
-
-		// });
 	}
 }

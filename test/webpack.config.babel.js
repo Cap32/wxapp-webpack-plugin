@@ -3,11 +3,7 @@ import path from 'path';
 import WXAppWebpackPlugin from '../src';
 
 export default {
-	entry: {
-		index: [
-			'./src/app.js',
-		],
-	},
+	entry: './src/app.js',
 	output: {
 		filename: 'index.js',
 		path: path.resolve(__dirname, 'dist'),
@@ -24,7 +20,9 @@ export default {
 		],
 	},
 	plugins: [
-		new WXAppWebpackPlugin(),
+		new WXAppWebpackPlugin({
+			base: 'src',
+		}),
 	],
 	resolve: {
 		modules: ['src', 'node_modules'],

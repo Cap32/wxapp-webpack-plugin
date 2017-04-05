@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "copy-webpack-plugin": "^4.0.1",
+    "fs-extra": "^2.1.2",
     "lodash": "^4.17.4",
     "virtual-module-webpack-plugin": "^0.2.0",
     "webpack-sources": "^0.2.3"
