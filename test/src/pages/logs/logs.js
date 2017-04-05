@@ -1,6 +1,8 @@
 
 import { formatTime } from '../../utils/util.js';
 
+// console.log('fork');
+
 Page({
 	data: {
 		logs: [],
