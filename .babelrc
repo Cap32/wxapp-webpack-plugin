@@ -1,6 +1,11 @@
 {
 	"presets": [
-		"es2015",
 		"stage-0",
+	],
+	"plugins": [
+		"add-module-exports",
+		["transform-es2015-destructuring", { loose: false }],
+		["transform-es2015-modules-commonjs", { loose: false }],
+		"transform-es2015-parameters",
 	]
 }

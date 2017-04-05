@@ -15,6 +15,10 @@ export default {
 				test: /\.js$/,
 				include: /src/,
 				loader: 'babel-loader',
+				query: {
+					presets: ['es2015', 'stage-0'],
+					babelrc: false,
+				}
 			},
 		],
 	},

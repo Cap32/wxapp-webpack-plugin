@@ -4,19 +4,26 @@
   "description": "微信小程序 Webpack 插件",
   "scripts": {
     "start": "cd test && webpack -w",
-    "test": "cd test && webpack"
+    "test": "cd test && webpack",
+    "prebuild": "rimraf ./lib && mkdirp ./lib",
+    "build": "babel src -o lib/index.js",
+    "preversion": "yarn build"
   },
   "main": "lib/index.js",
   "author": "cap32",
   "license": "MIT",
   "devDependencies": {
+    "babel-cli": "^6.24.0",
     "babel-core": "^6.24.0",
     "babel-eslint": "6.1",
     "babel-loader": "^6.4.1",
+    "babel-plugin-add-module-exports": "^0.2.1",
     "babel-preset-es2015": "^6.24.0",
     "babel-preset-stage-0": "^6.22.0",
     "eslint": "2.4",
     "eslint-plugin-babel": "3.2",
+    "mkdirp": "^0.5.1",
+    "rimraf": "^2.6.1",
     "webpack": "^2.3.2"
   },
   "dependencies": {
