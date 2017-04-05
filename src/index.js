@@ -40,12 +40,51 @@ export default class WXAppPlugin {
 		this._filesToWrite.push({ path, content });
 	}
 
+	getEntryBase(compiler) {
+		const { options } = this;
+		if (options.base) { return resolve(options.base); }
+
+		const { options: compilerOptions } = compiler;
+		const { context, entry } = compilerOptions;
+
+		const getEntryFromCompiler = () => {
+			if (typeof entry === 'string') {
+				return entry;
+			}
+
+			const appJSRegExp = /\bapp(\.js)?$/;
+			const findAppJS = (arr) => arr.find((path) => appJSRegExp.test(path));
+
+			if (Array.isArray(entry)) {
+				return findAppJS(entry);
+			}
+			if (typeof entry === 'object') {
+				return Object.keys(entry).find((key, val) => {
+					if (typeof val === 'string') {
+						return val;
+					}
+					if (Array.isArray(val)) {
+						return findAppJS(val);
+					}
+				});
+			}
+		};
+
+		const entryFromCompiler = getEntryFromCompiler();
+
+		if (entryFromCompiler) {
+			return dirname(entryFromCompiler);
+		}
+
+		return context;
+	}
+
 	applyPlugins(compiler) {
 		const { options } = this;
 		const globalInjectName = options.globalInjectName || '__wxapp_webpack__';
 
-		const { context, output } = compiler.options;
-		const base = resolve(options.base) || context;
+		const { output } = compiler.options;
+		const base = this.getEntryBase(compiler);
 
 		const providedModule = resolve(base, '__wx_pages__.js');
 

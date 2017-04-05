@@ -20,9 +20,7 @@ export default {
 		],
 	},
 	plugins: [
-		new WXAppWebpackPlugin({
-			base: 'src',
-		}),
+		new WXAppWebpackPlugin(),
 	],
 	resolve: {
 		modules: ['src', 'node_modules'],
