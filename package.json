@@ -10,6 +10,10 @@
     "preversion": "yarn build"
   },
   "main": "lib/index.js",
+  "files": [
+    "lib",
+    "*.md"
+  ],
   "keywords": [
     "wxapp",
     "weapp",
