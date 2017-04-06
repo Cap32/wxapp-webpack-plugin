@@ -96,6 +96,7 @@ export default class WXAppPlugin {
 	applyPlugins(compiler) {
 		const {
 			globalInjectName: globalInjectNameOption,
+			ignores = ['.*'],
 		} = this.options;
 		const globalInjectName = globalInjectNameOption || '__wxapp_webpack__';
 
@@ -136,7 +137,7 @@ export default class WXAppPlugin {
 
 		const copy = new CopyWebpackPlugin(
 			[{ from: base }],
-			{ ignore: ['**/*.js', '.*'] },
+			{ ignore: ['**/*.js', ...ignores] },
 		);
 
 		const provide = new ProvidePlugin({
