@@ -94,7 +94,7 @@ export default class WXAppPlugin {
 		const globalInjectName = globalInjectNameOption || '__wxapp_webpack__';
 
 		const { options } = compiler;
-		const { output, target } = options;
+		const { output } = options;
 		const base = this.getBase(compiler);
 
 		const providedModule = resolve(base, '__wx_pages__.js');
