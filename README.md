@@ -22,7 +22,7 @@ yarn add -D wxapp-webpack-plugin
 
 #### 配置 webpack
 
-1. 在 `entry` 上引入 `app.js` 文件
+1. 在 `entry` 上引入 `app.js` 文件 （支持[数组或对象方式](https://webpack.js.org/configuration/entry-context/#entry)）
 2. 在 `plugins` 数组添加 `new WXAppWebpackPlugin()`
 
 ###### 完整 webpack.config.js 示例
@@ -66,7 +66,7 @@ module.exports = {
 ## 注意
 
 - 暂时只在 `webpack@v2.3.2` 测试通过，不确定其他版本下是否兼容性，欢迎提交反馈
-- 程序的开发方式与[微信小程序开发文档](https://mp.weixin.qq.com/debug/wxadoc/dev/)一样，开发者需要在 `src` （源）目录创建 `app.js`、`app.json`、`app.wxss`、`pages/index/index.js` 之类的文件进行开发
+- 程序的开发方式与 [微信小程序开发文档](https://mp.weixin.qq.com/debug/wxadoc/dev/) 一样，开发者需要在 `src` （源）目录创建 `app.js`、`app.json`、`app.wxss`、`pages/index/index.js` 之类的文件进行开发
 - 默认下，`src` 目录下的所有非 `.js` 文件（例如 `app.json`, `pages/index/index.wxml` 等等），会被自动复制到 `dist` 目录
 
 
