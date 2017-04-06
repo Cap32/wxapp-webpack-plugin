@@ -20,13 +20,23 @@ export default class WXAppPlugin {
 		}
 
 		compiler.plugin('run', async (compiler, callback) => {
-			const err = await this.applyPlugins(compiler);
-			callback(err);
+			try {
+				await this.applyPlugins(compiler);
+				callback();
+			}
+			catch (err) {
+				callback(err);
+			}
 		});
 
 		compiler.plugin('watch-run', async (compiler, callback) => {
-			const err = await this.applyPlugins(compiler.compiler);
-			callback(err);
+			try {
+				await this.applyPlugins(compiler.compiler);
+				callback();
+			}
+			catch (err) {
+				callback(err);
+			}
 		});
 
 		compiler.plugin('emit', async (compilation, callback) => {
@@ -97,8 +107,7 @@ export default class WXAppPlugin {
 
 	async clean(compiler) {
 		const { path } = compiler.options.output;
-		try { await remove(path); }
-		catch (err) { return err; }
+		await remove(path);
 	}
 
 	async applyPlugins(compiler) {
@@ -112,8 +121,7 @@ export default class WXAppPlugin {
 		const { output } = options;
 		const base = this.getBase(compiler);
 
-		const err = await this.clean(compiler);
-		if (err) { return err; }
+		await this.clean(compiler);
 
 		const providedModule = resolve(base, '__wx_pages__.js');
 
