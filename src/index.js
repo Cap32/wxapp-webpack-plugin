@@ -12,6 +12,13 @@ export default class WXAppPlugin {
 	}
 
 	apply(compiler) {
+		const { forceNodeTarget = true } = this.options;
+		const { options } = compiler;
+
+		if (forceNodeTarget && options.target !== 'node') {
+			options.target = 'node';
+		}
+
 		compiler.plugin('run', (compiler, callback) => {
 			this.applyPlugins(compiler);
 			callback();
@@ -89,10 +96,6 @@ export default class WXAppPlugin {
 		const { options } = compiler;
 		const { output, target } = options;
 		const base = this.getBase(compiler);
-
-		if (target !== 'node') {
-			throw new Error('webpack config `target` must be "node"');
-		}
 
 		const providedModule = resolve(base, '__wx_pages__.js');
 
