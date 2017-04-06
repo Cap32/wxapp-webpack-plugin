@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "copy-webpack-plugin": "^4.0.1",
-    "fs-extra": "^2.1.2",
+    "fs-promise": "^2.0.2",
     "virtual-module-webpack-plugin": "^0.2.0"
   }
 }

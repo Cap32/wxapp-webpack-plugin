@@ -1,5 +1,5 @@
 
-import { readFileSync, writeFileSync, ensureDirSync, statSync } from 'fs-extra';
+import { readFile, writeFile, ensureDir, stat } from 'fs-promise';
 import { basename, resolve, dirname, relative } from 'path';
 import VirtualModuleWebpackPlugin from 'virtual-module-webpack-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
@@ -19,32 +19,34 @@ export default class WXAppPlugin {
 			options.target = 'node';
 		}
 
-		compiler.plugin('run', (compiler, callback) => {
-			this.applyPlugins(compiler);
+		compiler.plugin('run', async (compiler, callback) => {
+			await this.applyPlugins(compiler);
 			callback();
 		});
 
-		compiler.plugin('watch-run', (compiler, callback) => {
-			this.applyPlugins(compiler.compiler);
+		compiler.plugin('watch-run', async (compiler, callback) => {
+			await this.applyPlugins(compiler.compiler);
 			callback();
 		});
 
-		compiler.plugin('emit', (compilation, callback) => {
-			this._filesToWrite.forEach(({ path, content }) => {
+		compiler.plugin('emit', async (compilation, callback) => {
+			for (const { path, content } of this._filesToWrite) {
 				try {
-					ensureDirSync(dirname(path));
-					writeFileSync(path, content, 'utf8');
+					await ensureDir(dirname(path));
+					await writeFile(path, content, 'utf8');
+					const { size } = await stat(path);
 
 					const assetsPath = relative(compilation.options.output.path, path);
 					compilation.assets[assetsPath] = {
-						size: () => statSync(path).size,
+						size: () => size,
 						source: () => content,
 					};
 				}
 				catch (err) {
 					compilation.errors.push(err);
 				}
-			});
+			}
+
 			this._filesToWrite = [];
 			callback(null);
 		});
@@ -93,7 +95,7 @@ export default class WXAppPlugin {
 		return context;
 	}
 
-	applyPlugins(compiler) {
+	async applyPlugins(compiler) {
 		const {
 			globalInjectName: globalInjectNameOption,
 			ignores = ['.*'],
@@ -107,7 +109,7 @@ export default class WXAppPlugin {
 		const providedModule = resolve(base, '__wx_pages__.js');
 
 		const appJSONFile = resolve(base, 'app.json');
-		const appJSONStr = readFileSync(appJSONFile, 'utf8');
+		const appJSONStr = await readFile(appJSONFile, 'utf8');
 		const { pages } = JSON.parse(appJSONStr);
 
 		const resolveOutputFile = (file) => {
