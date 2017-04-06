@@ -2,7 +2,9 @@
 import { execSync } from 'child_process';
 
 test('wxapp-webpack-plugin', () => {
-	execSync('webpack', { cwd: __dirname });
+	const stdout = execSync('webpack', { cwd: __dirname, encoding: 'utf8' });
+
+	stdout && console.log(stdout);
 
 	global.getApp = jest.fn();
 	global.App = jest.fn();
