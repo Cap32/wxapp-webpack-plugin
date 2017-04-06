@@ -1,6 +1,6 @@
 
-import { readFileSync, writeFileSync, ensureDirSync } from 'fs-extra';
-import { basename, resolve, dirname } from 'path';
+import { readFileSync, writeFileSync, ensureDirSync, statSync } from 'fs-extra';
+import { basename, resolve, dirname, relative } from 'path';
 import VirtualModuleWebpackPlugin from 'virtual-module-webpack-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { ProvidePlugin, DefinePlugin } from 'webpack';
@@ -29,18 +29,24 @@ export default class WXAppPlugin {
 			callback();
 		});
 
-		compiler.plugin('after-emit', (compilation, callback) => {
+		compiler.plugin('emit', (compilation, callback) => {
 			this._filesToWrite.forEach(({ path, content }) => {
 				try {
 					ensureDirSync(dirname(path));
 					writeFileSync(path, content, 'utf8');
+
+					const assetsPath = relative(compilation.options.output.path, path);
+					compilation.assets[assetsPath] = {
+						size: () => statSync(path).size,
+						source: () => content,
+					};
 				}
 				catch (err) {
-					console.error(err);
+					compilation.errors.push(err);
 				}
 			});
 			this._filesToWrite = [];
-			callback(null, compilation);
+			callback(null);
 		});
 	}
 
