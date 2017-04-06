@@ -3,8 +3,9 @@
   "version": "0.0.0-2",
   "description": "微信小程序 Webpack 插件",
   "scripts": {
+    "start": "jest test --watch",
+    "test": "jest test",
     "test:webpack": "cd test && webpack",
-    "test": "jest test.js",
     "prebuild": "rimraf ./lib && mkdirp ./lib",
     "build": "babel src -o lib/index.js",
     "preversion": "yarn test && yarn build"
@@ -44,5 +45,11 @@
     "copy-webpack-plugin": "^4.0.1",
     "fs-promise": "^2.0.2",
     "virtual-module-webpack-plugin": "^0.2.0"
+  },
+  "jest": {
+    "modulePathIgnorePatterns": [
+      "node_modules",
+      "dist"
+    ]
   }
 }
