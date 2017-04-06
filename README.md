@@ -42,7 +42,6 @@ module.exports = {
         // 此处 `dist` 为微信开发者工具引入的开发目录
         path: path.resolve(__dirname, 'dist'),
     },
-    target: 'node', // 需要确保 `target` 为 `node`
     plugins: [
 
         // 引入插件
@@ -61,7 +60,8 @@ module.exports = {
 
 #### 开始开发小程序
 
-现在可以开始使用 webpack 开发微信小程序
+现在可以通过在终端输入 `webpack -w` 开始使用 webpack 开发微信小程序
+
 
 ## 注意
 
