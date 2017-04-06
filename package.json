@@ -10,6 +10,13 @@
     "preversion": "yarn build"
   },
   "main": "lib/index.js",
+  "keywords": [
+    "wxapp",
+    "weapp",
+    "webpack",
+    "webpack-plugin",
+    "plugin"
+  ],
   "author": "cap32",
   "license": "MIT",
   "devDependencies": {
