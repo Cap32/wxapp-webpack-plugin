@@ -47,7 +47,6 @@
     "globby": "^6.1.0",
     "lodash": "^4.17.4",
     "read-pkg-up": "^2.0.0",
-    "virtual-module-webpack-plugin": "^0.2.0",
     "webpack-sources": "^0.2.3"
   },
   "jest": {
