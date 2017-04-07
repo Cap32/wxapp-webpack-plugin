@@ -1,7 +1,6 @@
 
 import { remove, ensureDir, readJson } from 'fs-promise';
 import { resolve, dirname, relative, join, parse as parsePath } from 'path';
-// import VirtualModuleWebpackPlugin from 'virtual-module-webpack-plugin';
 import webpack, { DllPlugin, DllReferencePlugin } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
@@ -101,9 +100,9 @@ export default class WXAppPlugin {
 			const { dir, name } = parsePath(page);
 			const filename = join(dir, name);
 			const filenameWithExt = `${filename}.js`;
+			this.ignoredModules.push(filenameWithExt);
 			return {
 				absolutePath: resolve(base, filenameWithExt),
-				relativePath: filenameWithExt,
 				filename,
 			};
 		});
@@ -145,8 +144,11 @@ export default class WXAppPlugin {
 		this.addEntries(compiler, entries, assetsChunkName);
 	}
 
-	async applyDll(compiler, modules) {
-		const { bundleModuleName, bundleFileName } = this.options;
+	async applyDll(compiler) {
+		const {
+			modules,
+			options: { bundleModuleName, bundleFileName },
+		} = this;
 		const { options } = compiler;
 		const { output, plugins } = options;
 		const outputPath = output.path;
@@ -188,24 +190,24 @@ export default class WXAppPlugin {
 	}
 
 	async compileJS(compiler) {
+		const { base } = this;
 		const jsFiles = await globby(['**/*.js'], {
-			cwd: this.base,
+			cwd: base,
 			nodir: true,
 		});
 		const pages = await this.getPages();
-		const pageFiles = pages
-			.map(({ relativePath }) => relativePath)
-			.concat('app.js')
-		;
-
-		const modules = dropWhile(jsFiles, (file) => pageFiles.indexOf(file) > -1);
 
 		const { pkg } = await readPkgUp();
 		const dependencieModules = Object.keys(pkg.dependencies || {});
 
-		modules.push(...dependencieModules);
+		this.modules.push(...jsFiles, ...dependencieModules);
 
-		await this.applyDll(compiler, modules);
+		this.modules = dropWhile(
+			this.modules,
+			(file) => this.ignoredModules.indexOf(file) > -1,
+		);
+
+		await this.applyDll(compiler);
 
 		pages.forEach(({ absolutePath, filename }) => {
 			this.addEntries(compiler, [absolutePath], filename);
@@ -238,6 +240,9 @@ export default class WXAppPlugin {
 	}
 
 	async run(compiler) {
+		this.modules = [];
+		this.ignoredModules = ['app.js'];
+
 		this.base = this.getBase(compiler);
 
 		await this.clean(compiler);
@@ -246,5 +251,16 @@ export default class WXAppPlugin {
 
 		await this.compileAssets(compiler);
 		await this.compileJS(compiler);
+
+		// compiler.plugin('compilation', (compilation) => {
+		// 	compilation.plugin('after-optimize-chunk-assets', (chunks) => {
+		// 		chunks.forEach((chunk) => {
+		// 			chunk.modules.forEach((module) => {
+		// 				console.log('module', module);
+		// 				// console.log('module', Object.keys(module));
+		// 			});
+		// 		});
+		// 	});
+		// });
 	}
 }
