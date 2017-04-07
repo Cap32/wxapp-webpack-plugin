@@ -24,9 +24,11 @@ yarn add -D wxapp-webpack-plugin
 #### 配置 webpack
 
 1. 在 `entry` 上引入 `{ app: './src/app.js' }`（支持[数组或对象方式](https://webpack.js.org/configuration/entry-context/#entry)）
+    `app.js` 为微信小程序开发所需的 `app.js`
 2. 在 `output` 上设置 `filename: '[name].js`
 3. 添加 `new WXAppWebpackPlugin()` 到 `plugins`
 4. 添加 `file-loader` 到 `module.rules`
+    因为 `webpack` 需要把 `wxss`, `wxml`, `json` 文件打包到 `dist` 目录，所以需要 `file-loader` 来实现。开发者也可以根据自己的需求，添加 `scss-loader` 之类的 `loader` 来实现编译各种格式文件
 
 ###### 完整 webpack.config.js 示例
 
@@ -82,6 +84,8 @@ module.exports = {
 
 - 暂时只在 `webpack@v2.3.2` 测试通过，不确定其他版本下是否兼容性，欢迎提交反馈
 - 程序的开发方式与 [微信小程序开发文档](https://mp.weixin.qq.com/debug/wxadoc/dev/) 一样，开发者需要在 `src` （源）目录创建 `app.js`、`app.json`、`app.wxss`、`pages/index/index.js` 之类的文件进行开发
+- 如果要引入 `node_modules` 目录，那么推荐把相关依赖文件添加到 `package.json` 的 `dependencies` 上
+- 开发目录上的所有 `.js` 文件都将会被打包起来，请把无关的 `.js` 文件从开发目录上删掉，以免增大体积
 
 
 ## License
