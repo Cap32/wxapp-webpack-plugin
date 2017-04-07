@@ -36,15 +36,19 @@
     "eslint": "2.4",
     "eslint-plugin-babel": "3.2",
     "eslint-plugin-jest": "^19.0.1",
+    "file-loader": "^0.11.1",
     "jest": "^19.0.2",
     "mkdirp": "^0.5.1",
     "rimraf": "^2.6.1",
     "webpack": "^2.3.2"
   },
   "dependencies": {
-    "copy-webpack-plugin": "^4.0.1",
     "fs-promise": "^2.0.2",
-    "virtual-module-webpack-plugin": "^0.2.0"
+    "globby": "^6.1.0",
+    "lodash": "^4.17.4",
+    "read-pkg-up": "^2.0.0",
+    "virtual-module-webpack-plugin": "^0.2.0",
+    "webpack-sources": "^0.2.3"
   },
   "jest": {
     "modulePathIgnorePatterns": [

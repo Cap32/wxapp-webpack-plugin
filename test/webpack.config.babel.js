@@ -3,9 +3,11 @@ import path from 'path';
 import WXAppWebpackPlugin from '../src';
 
 export default {
-	entry: './src/app.js',
+	entry: {
+		app: ['./src/utils/bomPolyfill.js', './src/app.js'],
+	},
 	output: {
-		filename: 'index.js',
+		filename: '[name].js',
 		path: path.resolve(__dirname, 'dist'),
 	},
 	module: {
@@ -19,16 +21,23 @@ export default {
 					babelrc: false,
 				}
 			},
+			{
+				test: /\.(wxss|wxml|json)$/,
+				include: /src/,
+				loader: 'file-loader',
+				options: {
+					useRelativePath: true,
+					name: '[name].[ext]',
+				}
+			},
 		],
 	},
 	plugins: [
 		new WXAppWebpackPlugin(),
 	],
+	devtool: 'source-map',
 	resolve: {
 		modules: ['src', 'node_modules'],
 		extensions: ['.js'],
-	},
-	resolveLoader: {
-		moduleExtensions: ['-loader'],
 	},
 };

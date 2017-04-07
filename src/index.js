@@ -1,18 +1,28 @@
 
-import { readFile, writeFile, ensureDir, remove, stat } from 'fs-promise';
-import { basename, resolve, dirname, relative } from 'path';
-import VirtualModuleWebpackPlugin from 'virtual-module-webpack-plugin';
-import CopyWebpackPlugin from 'copy-webpack-plugin';
-import { ProvidePlugin, DefinePlugin } from 'webpack';
+import { remove, ensureDir, readJson } from 'fs-promise';
+import { resolve, dirname, relative, join, parse as parsePath } from 'path';
+// import VirtualModuleWebpackPlugin from 'virtual-module-webpack-plugin';
+import webpack, { DllPlugin, DllReferencePlugin } from 'webpack';
+import { ConcatSource } from 'webpack-sources';
+import globby from 'globby';
+import { defaults, dropWhile } from 'lodash';
+import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
+import readPkgUp from 'read-pkg-up';
 
 export default class WXAppPlugin {
 	constructor(options = {}) {
-		this.options = options || {};
-		this._filesToWrite = [];
+		this.options = defaults(options || {}, {
+			forceNodeTarget: true,
+			ignores: ['.*'],
+			base: undefined,
+			bundleFileName: 'bundle.js',
+			bundleModuleName: '__webpack_wxapp_bundle__',
+			assetsChunkName: '__assets_chunk_name__',
+		});
 	}
 
 	apply(compiler) {
-		const { forceNodeTarget = true } = this.options;
+		const { forceNodeTarget } = this.options;
 		const { options } = compiler;
 
 		if (forceNodeTarget && options.target !== 'node') {
@@ -21,7 +31,7 @@ export default class WXAppPlugin {
 
 		compiler.plugin('run', async (compiler, callback) => {
 			try {
-				await this.applyPlugins(compiler);
+				await this.run(compiler);
 				callback();
 			}
 			catch (err) {
@@ -31,39 +41,13 @@ export default class WXAppPlugin {
 
 		compiler.plugin('watch-run', async (compiler, callback) => {
 			try {
-				await this.applyPlugins(compiler.compiler);
+				await this.run(compiler.compiler);
 				callback();
 			}
 			catch (err) {
 				callback(err);
 			}
 		});
-
-		compiler.plugin('emit', async (compilation, callback) => {
-			for (const { path, content } of this._filesToWrite) {
-				try {
-					await ensureDir(dirname(path));
-					await writeFile(path, content, 'utf8');
-					const { size } = await stat(path);
-
-					const assetsPath = relative(compilation.options.output.path, path);
-					compilation.assets[assetsPath] = {
-						size: () => size,
-						source: () => content,
-					};
-				}
-				catch (err) {
-					compilation.errors.push(err);
-				}
-			}
-
-			this._filesToWrite = [];
-			callback(null);
-		});
-	}
-
-	addFileToWrite(path, content) {
-		this._filesToWrite.push({ path, content });
 	}
 
 	getBase(compiler) {
@@ -85,14 +69,18 @@ export default class WXAppPlugin {
 				return findAppJS(entry);
 			}
 			if (typeof entry === 'object') {
-				return Object.keys(entry).find((key, val) => {
+
+				for (const key in entry) {
+					if (!entry.hasOwnProperty(key)) { continue; }
+
+					const val = entry[key];
 					if (typeof val === 'string') {
 						return val;
 					}
 					if (Array.isArray(val)) {
 						return findAppJS(val);
 					}
-				});
+				}
 			}
 		};
 
@@ -105,71 +93,158 @@ export default class WXAppPlugin {
 		return context;
 	}
 
+	async getPages() {
+		const { base } = this;
+		const appJSONFile = resolve(base, 'app.json');
+		const { pages = [] } = await readJson(appJSONFile);
+		return pages.map((page) => {
+			const { dir, name } = parsePath(page);
+			const filename = join(dir, name);
+			const filenameWithExt = `${filename}.js`;
+			return {
+				absolutePath: resolve(base, filenameWithExt),
+				relativePath: filenameWithExt,
+				filename,
+			};
+		});
+	}
+
 	async clean(compiler) {
 		const { path } = compiler.options.output;
 		await remove(path);
 	}
 
-	async applyPlugins(compiler) {
-		const {
-			globalInjectName: globalInjectNameOption,
-			ignores = ['.*'],
-		} = this.options;
-		const globalInjectName = globalInjectNameOption || '__wxapp_webpack__';
+	addEntries(compiler, entries, chunkName) {
+		compiler.apply(new MultiEntryPlugin(this.base, entries, chunkName));
+	}
 
+	async compileAssets(compiler) {
+		const {
+			ignores,
+			assetsChunkName,
+		} = this.options;
+
+		compiler.plugin('compilation', (compilation) => {
+			compilation.plugin('before-chunk-assets', () => {
+				const assetsChunkIndex = compilation.chunks.findIndex(({ name }) =>
+					name === assetsChunkName
+				);
+				if (assetsChunkIndex > -1) {
+					compilation.chunks.splice(assetsChunkIndex, 1);
+				}
+			});
+		});
+
+		const entries = await globby(['**/*'], {
+			cwd: this.base,
+			nodir: true,
+			realpath: true,
+			ignore: ['**/*.js', ...ignores],
+		});
+
+		this.addEntries(compiler, entries, assetsChunkName);
+	}
+
+	async applyDll(compiler, modules) {
+		const { bundleModuleName, bundleFileName } = this.options;
 		const { options } = compiler;
-		const { output } = options;
-		const base = this.getBase(compiler);
+		const { output, plugins } = options;
+		const outputPath = output.path;
+		const manifestFilepath = resolve(outputPath, 'manifest.json');
+
+		await ensureDir(outputPath);
+
+		const dllCompiler = webpack({
+			...options,
+			entry: {
+				modules,
+			},
+			output: {
+				...output,
+				filename: bundleFileName,
+				libraryTarget: 'global',
+				library: bundleModuleName,
+			},
+			plugins: [
+				...dropWhile(plugins, (plugin) => plugin instanceof WXAppPlugin),
+				new DllPlugin({
+					name: bundleModuleName,
+					path: manifestFilepath,
+				}),
+			],
+		});
+
+		await new Promise((resolve, reject) => {
+			dllCompiler.run((err) => {
+				if (err) { reject(err); }
+				else { resolve(); }
+			});
+		});
+
+		compiler.apply(new DllReferencePlugin({
+			manifest: manifestFilepath,
+			sourceType: 'global',
+		}));
+	}
+
+	async compileJS(compiler) {
+		const jsFiles = await globby(['**/*.js'], {
+			cwd: this.base,
+			nodir: true,
+		});
+		const pages = await this.getPages();
+		const pageFiles = pages
+			.map(({ relativePath }) => relativePath)
+			.concat('app.js')
+		;
+
+		const modules = dropWhile(jsFiles, (file) => pageFiles.indexOf(file) > -1);
+
+		const { pkg } = await readPkgUp();
+		const dependencieModules = Object.keys(pkg.dependencies || {});
+
+		modules.push(...dependencieModules);
+
+		await this.applyDll(compiler, modules);
+
+		pages.forEach(({ absolutePath, filename }) => {
+			this.addEntries(compiler, [absolutePath], filename);
+		});
+	}
+
+	toInjectDllModule(compilation) {
+		const { bundleFileName } = this.options;
+
+		const injectDllModule = (filePath) => {
+			const relativePath = relative(dirname(filePath), './');
+			const dllModulePath = join(relativePath, bundleFileName);
+			return `require("./${dllModulePath}");`;
+		};
+
+		compilation.plugin('optimize-chunk-assets', (chunks, callback) => {
+			chunks.forEach((chunk) => {
+				if (!chunk.isInitial()) { return; }
+
+				chunk.files.forEach((file) => {
+					compilation.assets[file] = new ConcatSource(
+						injectDllModule(file),
+						compilation.assets[file],
+					);
+				});
+			});
+
+			callback();
+		});
+	}
+
+	async run(compiler) {
+		this.base = this.getBase(compiler);
 
 		await this.clean(compiler);
 
-		const providedModule = resolve(base, '__wx_pages__.js');
+		compiler.plugin('compilation', ::this.toInjectDllModule);
 
-		const appJSONFile = resolve(base, 'app.json');
-		const appJSONStr = await readFile(appJSONFile, 'utf8');
-		const { pages } = JSON.parse(appJSONStr);
-
-		const resolveOutputFile = (file) => {
-			if (!/\.js$/.test(file)) { file += '.js'; }
-			return resolve(output.path, file);
-		};
-
-		const pagesCode = pages.map((pagePathname) => {
-			const page = basename(pagePathname, '.js');
-			const outputPageFile = resolveOutputFile(pagePathname);
-			const pageContent = `global.${globalInjectName}.${page}();`;
-			this.addFileToWrite(outputPageFile, pageContent);
-			return `"${page}": function () { require("./${pagePathname}"); }`;
-		}).join(',');
-
-		const outputAppFile = resolveOutputFile('app.js');
-		const appContent = `require("./${output.filename}");`;
-		this.addFileToWrite(outputAppFile, appContent);
-
-		const virtualModule = new VirtualModuleWebpackPlugin({
-			moduleName: providedModule,
-			contents:
-				`global.${globalInjectName} = {\n\t${pagesCode}\n};` +
-				'module.exports = __WX_APP_FUNCTION__'
-			,
-		});
-
-		const copy = new CopyWebpackPlugin(
-			[{ from: base }],
-			{ ignore: ['**/*.js', ...ignores] },
-		);
-
-		const provide = new ProvidePlugin({
-			App: providedModule,
-		});
-
-		const define = new DefinePlugin({
-			__WX_APP_FUNCTION__: 'App',
-		});
-
-		compiler.apply(copy);
-		compiler.apply(virtualModule);
-		compiler.apply(provide);
-		compiler.apply(define);
+		await this.compileAssets(compiler);
+		await this.compileJS(compiler);
 	}
 }
