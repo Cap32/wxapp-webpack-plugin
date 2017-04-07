@@ -1,7 +1,6 @@
 # wxapp-webpack-plugin
 微信小程序 webpack 插件
 
-
 ## 为什么要使用 webpack
 
 很多前端开发者都使用过 [webpack](https://webpack.js.org/)，通过 webpack 开发 JavaScript 项目可以带来很多好处
@@ -13,6 +12,8 @@
 
 
 ## 用法
+
+**注意：在 `v0.0.0` 发布之前，使用方法可能会有所改变**
 
 #### 安装
 
