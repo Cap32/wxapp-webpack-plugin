@@ -23,21 +23,11 @@ yarn add -D wxapp-webpack-plugin
 
 #### 配置 webpack
 
-1. 在 `entry` 上引入 `{ app: './src/app.js' }`（支持[数组或对象方式](https://webpack.js.org/configuration/entry-context/#entry)）
+1. 在 `entry` 上引入 `{ app: './src/app.js' }`, `app.js` 为微信小程序开发所需的 `app.js`。**注意** `key` 必须为 `app`，`value` 支持[数组](https://webpack.js.org/configuration/entry-context/#entry)）
 
-    > `app.js` 为微信小程序开发所需的 `app.js`
+2. 在 `output` 上设置 `filename: '[name].js'。` **注意** 这里 `[name].js` 是因为 `webpack` 将会打包生成多个文件，文件名称将以 `[name]` 规则来输出
 
-    > `{ app: './src/app.js' }` 的 `app` key 必须为 `app`
-
-2. 在 `output` 上设置 `filename: '[name].js'`
-
-    > 这里 `[name].js` 是因为 `webpack` 将会打包生成多个文件，文件名称将以 `[name]` 规则来输出
-
-3. 添加 `file-loader` 到 `module.rules`
-
-    > 因为 `webpack` 需要把 `wxss`, `wxml`, `json` 文件打包输出，所以需要 `file-loader` 来实现。
-
-    > 开发者也可以根据自己的需求，添加 `scss-loader` 之类的 `loader` 来实现编译各种格式文件
+3. 添加 `file-loader` 到 `module.rules`。开发者也可以根据自己的需求，添加 `scss-loader` 之类的 `loader` 来实现编译各种格式文件
 
 4. 添加 `new WXAppWebpackPlugin()` 到 `plugins`
 
@@ -73,7 +63,9 @@ module.exports = {
                 include: /src/,
                 loader: 'file-loader',
                 options: {
-                    useRelativePath: true,
+                
+                    // 这是推荐的配置方式
+                    useRelativePath: true,
                     name: '[name].[ext]',
                 }
             },
