@@ -4,7 +4,7 @@ import { resolve, dirname, relative, join, parse as parsePath } from 'path';
 import webpack, { DllPlugin, DllReferencePlugin } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
-import { defaults, dropWhile } from 'lodash';
+import { defaults, dropWhile, pull } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 import readPkgUp from 'read-pkg-up';
 
@@ -108,7 +108,7 @@ export default class WXAppPlugin {
 		});
 	}
 
-	async clean(compiler) {
+	async clear(compiler) {
 		const { path } = compiler.options.output;
 		await remove(path);
 	}
@@ -174,6 +174,7 @@ export default class WXAppPlugin {
 					path: manifestFilepath,
 				}),
 			],
+			watch: false,
 		});
 
 		await new Promise((resolve, reject) => {
@@ -187,6 +188,13 @@ export default class WXAppPlugin {
 			manifest: manifestFilepath,
 			sourceType: 'global',
 		}));
+
+		// to avoid trigger `watch-run` again
+		compiler.plugin('before-compile', (params, callback) => {
+			pull(params.compilationDependencies, manifestFilepath);
+			return callback();
+		});
+
 	}
 
 	async compileJS(compiler) {
@@ -245,7 +253,7 @@ export default class WXAppPlugin {
 
 		this.base = this.getBase(compiler);
 
-		await this.clean(compiler);
+		// await this.clear(compiler);
 
 		compiler.plugin('compilation', ::this.toInjectDllModule);
 
