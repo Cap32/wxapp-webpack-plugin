@@ -4,7 +4,7 @@ import { resolve, dirname, relative, join, parse as parsePath } from 'path';
 import webpack, { DllPlugin, DllReferencePlugin } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
-import { defaults, dropWhile, pull } from 'lodash';
+import { defaults, dropWhile, pull, once } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 import readPkgUp from 'read-pkg-up';
 
@@ -117,7 +117,7 @@ export default class WXAppPlugin {
 		compiler.apply(new MultiEntryPlugin(this.base, entries, chunkName));
 	}
 
-	async compileAssets(compiler) {
+	compileAssets = (async (compiler) => {
 		const {
 			ignores,
 			assetsChunkName,
@@ -142,7 +142,7 @@ export default class WXAppPlugin {
 		});
 
 		this.addEntries(compiler, entries, assetsChunkName);
-	}
+	});
 
 	async applyDll(compiler) {
 		const {
@@ -197,7 +197,7 @@ export default class WXAppPlugin {
 
 	}
 
-	async compileJS(compiler) {
+	compileJS = once(async (compiler) => {
 		const { base } = this;
 		const jsFiles = await globby(['**/*.js'], {
 			cwd: base,
@@ -220,9 +220,9 @@ export default class WXAppPlugin {
 		pages.forEach(({ absolutePath, filename }) => {
 			this.addEntries(compiler, [absolutePath], filename);
 		});
-	}
+	});
 
-	toInjectDllModule(compilation) {
+	toInjectDllModule = (compilation) => {
 		const { bundleFileName } = this.options;
 
 		const injectDllModule = (filePath) => {
@@ -235,17 +235,25 @@ export default class WXAppPlugin {
 			chunks.forEach((chunk) => {
 				if (!chunk.isInitial()) { return; }
 
-				chunk.files.forEach((file) => {
-					compilation.assets[file] = new ConcatSource(
-						injectDllModule(file),
-						compilation.assets[file],
-					);
-				});
+				chunk
+					.files
+					.filter((file) => !compilation.assets[file].hasInjectedDllModule)
+					.forEach((file) => {
+						const asset = new ConcatSource(
+							injectDllModule(file),
+							compilation.assets[file],
+						);
+						compilation.assets[file] = asset;
+
+						// add a flag
+						asset.hasInjectedDllModule = true;
+					})
+				;
 			});
 
 			callback();
 		});
-	}
+	};
 
 	async run(compiler) {
 		this.modules = [];
