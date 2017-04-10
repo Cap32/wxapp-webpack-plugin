@@ -7,6 +7,7 @@
     "test": "jest test",
     "test:webpack": "cd test && webpack",
     "prebuild": "rimraf ./lib && mkdirp ./lib",
+    "build:watch": "babel src -o lib/index.js -w",
     "build": "babel src -o lib/index.js",
     "preversion": "yarn test && yarn build"
   },
