@@ -12,7 +12,9 @@ export default class WXAppPlugin {
 	constructor(options = {}) {
 		this.options = defaults(options || {}, {
 			forceNodeTarget: true,
-			ignores: ['.*'],
+			includes: ['**/*'],
+			excludes: [],
+			dot: false, // Include `.dot` files
 			base: undefined,
 			bundleFileName: 'bundle.js',
 			bundleModuleName: '__webpack_wxapp_bundle__',
@@ -119,7 +121,9 @@ export default class WXAppPlugin {
 
 	compileAssets = (async (compiler) => {
 		const {
-			ignores,
+			includes,
+			excludes,
+			dot,
 			assetsChunkName,
 		} = this.options;
 
@@ -134,11 +138,12 @@ export default class WXAppPlugin {
 			});
 		});
 
-		const entries = await globby(['**/*'], {
+		const entries = await globby(includes, {
 			cwd: this.base,
 			nodir: true,
 			realpath: true,
-			ignore: ['**/*.js', ...ignores],
+			ignore: ['**/*.js', ...excludes],
+			dot,
 		});
 
 		this.addEntries(compiler, entries, assetsChunkName);
@@ -198,10 +203,11 @@ export default class WXAppPlugin {
 	}
 
 	compileJS = once(async (compiler) => {
-		const { base } = this;
+		const { base, options: { dot } } = this;
 		const jsFiles = await globby(['**/*.js'], {
 			cwd: base,
 			nodir: true,
+			dot,
 		});
 		const pages = await this.getPages();
 
