@@ -1,33 +1,38 @@
 
-import { remove, ensureDir, readJson } from 'fs-promise';
-import { resolve, dirname, relative, join, parse as parsePath } from 'path';
-import webpack, { DllPlugin, DllReferencePlugin } from 'webpack';
+import { remove, readJson } from 'fs-promise';
+import { resolve, dirname, relative, join, parse } from 'path';
+import { optimize } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
-import { defaults, dropWhile, pull, once } from 'lodash';
+import { defaults } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
-import readPkgUp from 'read-pkg-up';
+
+const { CommonsChunkPlugin } = optimize;
+
+const stripExt = (path) => {
+	const { dir, name } = parse(path);
+	return join(dir, name);
+};
 
 export default class WXAppPlugin {
 	constructor(options = {}) {
 		this.options = defaults(options || {}, {
-			forceNodeTarget: true,
 			includes: ['**/*'],
 			excludes: [],
 			dot: false, // Include `.dot` files
 			base: undefined,
 			bundleFileName: 'bundle.js',
-			bundleModuleName: '__webpack_wxapp_bundle__',
+			forceWebTarget: true,
 			assetsChunkName: '__assets_chunk_name__',
 		});
 	}
 
 	apply(compiler) {
-		const { forceNodeTarget } = this.options;
+		const { forceWebTarget } = this.options;
 		const { options } = compiler;
 
-		if (forceNodeTarget && options.target !== 'node') {
-			options.target = 'node';
+		if (forceWebTarget && options.target !== 'web') {
+			options.target = 'web';
 		}
 
 		compiler.plugin('run', async (compiler, callback) => {
@@ -99,10 +104,9 @@ export default class WXAppPlugin {
 		const appJSONFile = resolve(base, 'app.json');
 		const { pages = [] } = await readJson(appJSONFile);
 		return pages.map((page) => {
-			const { dir, name } = parsePath(page);
+			const { dir, name } = parse(page);
 			const filename = join(dir, name);
 			const filenameWithExt = `${filename}.js`;
-			this.ignoredModules.push(filenameWithExt);
 			return {
 				absolutePath: resolve(base, filenameWithExt),
 				filename,
@@ -149,93 +153,50 @@ export default class WXAppPlugin {
 		this.addEntries(compiler, entries, assetsChunkName);
 	});
 
-	async applyDll(compiler) {
+	applyCommonsChunk(compiler, pages) {
 		const {
-			modules,
-			options: { bundleModuleName, bundleFileName },
+			options: { bundleFileName },
 		} = this;
-		const { options } = compiler;
-		const { output, plugins } = options;
-		const outputPath = output.path;
-		const manifestFilepath = resolve(outputPath, 'manifest.json');
 
-		await ensureDir(outputPath);
+		const allPages = [resolve(this.base, 'app.js')]
+			.concat(pages.map(({ absolutePath }) => absolutePath))
+		;
 
-		const dllCompiler = webpack({
-			...options,
-			entry: {
-				modules,
+		compiler.apply(new CommonsChunkPlugin({
+			name: stripExt(bundleFileName),
+			minChunks: ({ resource }) => {
+				if (resource) {
+					return /\.js$/.test(resource) && !allPages.includes(resource);
+				}
+				return false;
 			},
-			output: {
-				...output,
-				filename: bundleFileName,
-				libraryTarget: 'global',
-				library: bundleModuleName,
-			},
-			plugins: [
-				...dropWhile(plugins, (plugin) => plugin instanceof WXAppPlugin),
-				new DllPlugin({
-					name: bundleModuleName,
-					path: manifestFilepath,
-				}),
-			],
-			watch: false,
-		});
-
-		await new Promise((resolve, reject) => {
-			dllCompiler.run((err) => {
-				if (err) { reject(err); }
-				else { resolve(); }
-			});
-		});
-
-		compiler.apply(new DllReferencePlugin({
-			manifest: manifestFilepath,
-			sourceType: 'global',
 		}));
-
-		// to avoid trigger `watch-run` again
-		compiler.plugin('before-compile', (params, callback) => {
-			pull(params.compilationDependencies, manifestFilepath);
-			return callback();
-		});
-
 	}
 
-	compileJS = once(async (compiler) => {
-		const { base, options: { dot } } = this;
-		const jsFiles = await globby(['**/*.js'], {
-			cwd: base,
-			nodir: true,
-			dot,
-		});
+	async compileJS(compiler) {
 		const pages = await this.getPages();
 
-		const { pkg } = await readPkgUp();
-		const dependencieModules = Object.keys(pkg.dependencies || {});
-
-		this.modules.push(...jsFiles, ...dependencieModules);
-
-		this.modules = dropWhile(
-			this.modules,
-			(file) => this.ignoredModules.indexOf(file) > -1,
-		);
-
-		await this.applyDll(compiler);
+		this.applyCommonsChunk(compiler, pages);
 
 		pages.forEach(({ absolutePath, filename }) => {
 			this.addEntries(compiler, [absolutePath], filename);
 		});
-	});
+	}
 
-	toInjectDllModule = (compilation) => {
+	toModifyTemplate(compilation) {
 		const { bundleFileName } = this.options;
+		const { jsonpFunction } = compilation.options.output;
 
-		const injectDllModule = (filePath) => {
+		const injectModule = (filePath) => {
 			const relativePath = relative(dirname(filePath), './');
-			const dllModulePath = join(relativePath, bundleFileName);
-			return `require("./${dllModulePath}");`;
+			const bundle = join(relativePath, bundleFileName);
+			return '' +
+				`require("./${bundle}");` +
+				`var ${jsonpFunction}=global.${jsonpFunction};`
+			;
 		};
+
+		const injectWindow = 'var window=global;';
 
 		compilation.plugin('optimize-chunk-assets', (chunks, callback) => {
 			chunks.forEach((chunk) => {
@@ -243,46 +204,34 @@ export default class WXAppPlugin {
 
 				chunk
 					.files
-					.filter((file) => !compilation.assets[file].hasInjectedDllModule)
+					.filter((file) => !compilation.assets[file].hasInjectedModule)
 					.forEach((file) => {
+						const isBundleFile = chunk.name === 'bundle';
+						const inject = isBundleFile ? injectWindow : injectModule(file);
 						const asset = new ConcatSource(
-							injectDllModule(file),
+							inject,
 							compilation.assets[file],
 						);
 						compilation.assets[file] = asset;
 
 						// add a flag
-						asset.hasInjectedDllModule = true;
+						asset.hasInjectedModule = true;
 					})
 				;
 			});
 
 			callback();
 		});
-	};
+	}
 
 	async run(compiler) {
-		this.modules = [];
-		this.ignoredModules = ['app.js'];
-
 		this.base = this.getBase(compiler);
 
 		// await this.clear(compiler);
 
-		compiler.plugin('compilation', ::this.toInjectDllModule);
+		compiler.plugin('compilation', ::this.toModifyTemplate);
 
 		await this.compileAssets(compiler);
 		await this.compileJS(compiler);
-
-		// compiler.plugin('compilation', (compilation) => {
-		// 	compilation.plugin('after-optimize-chunk-assets', (chunks) => {
-		// 		chunks.forEach((chunk) => {
-		// 			chunk.modules.forEach((module) => {
-		// 				console.log('module', module);
-		// 				// console.log('module', Object.keys(module));
-		// 			});
-		// 		});
-		// 	});
-		// });
 	}
 }

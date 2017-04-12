@@ -1,10 +1,12 @@
 
 import { flow } from 'lodash';
+import { formatTime } from 'utils/util.js';
+
 
 App({
 	onLaunch() {
 
-		flow(() => console.log('onLaunch App'))();
+		flow(() => console.log('typeof formatTime', typeof formatTime))();
 
 		//调用API从本地缓存中获取数据
 		var logs = wx.getStorageSync('logs') || [];
