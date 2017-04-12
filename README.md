@@ -96,7 +96,7 @@ module.exports = {
 
 ###### options
 
-- `includes` ([String]): 匹配引入非 `.js` 到 `webpack` 编译。默认为 `[**/*]`，也就是说，默认所有文件都会被 `webpack` 编译生成到输出目录
+- `includes` ([String]): 匹配引入非 `.js` 到 `webpack` 编译。默认为 `['**/*']`，也就是说，默认所有文件都会被 `webpack` 编译生成到输出目录
 - `excludes` ([String]): 去除匹配的文件。默认为空数组 `[]`
 - `dot` (Boolean): 是否引入 `.` 开头的文件。默认为 `false`
 - `bundleFileName` (String): 打包出来的 `.js` 文件名。默认为 `bundle.js`
