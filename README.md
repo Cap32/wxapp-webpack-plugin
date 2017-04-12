@@ -1,6 +1,7 @@
 # wxapp-webpack-plugin
 微信小程序 webpack 插件
 
+
 ## 为什么要使用 webpack
 
 很多前端开发者都使用过 [webpack](https://webpack.js.org/)，通过 webpack 开发 JavaScript 项目可以带来很多好处
@@ -11,7 +12,13 @@
 - 还有很多...
 
 
-## 用法
+## 为什么要使用这个插件
+
+- 微信小程序开发需要有多个入口文件（如 `app.js`, `app.json`, `pages/index/index.js` 等等），使用这个插件只需要引入 `app.js` 即可，其余文件将会被自动引入
+- 若多个入口文件（如 `pages/index/index.js` 和 `pages/logs/logs.js`）引入有相同的模块，这个插件能避免重复打包相同模块
+
+
+## 使用方法
 
 **注意：在 `v0.0.0` 发布之前，使用方法可能会有所改变**
 
@@ -23,7 +30,7 @@ yarn add -D wxapp-webpack-plugin
 
 #### 配置 webpack
 
-1. 在 `entry` 上引入 `{ app: './src/app.js' }`, `app.js` 为微信小程序开发所需的 `app.js`。**注意** `key` 必须为 `app`，`value` 支持[数组](https://webpack.js.org/configuration/entry-context/#entry)）
+1. 在 `entry` 上引入 `{ app: './src/app.js' }`, 这里的 `./src/app.js` 为微信小程序开发所需的 `app.js`。**注意** `key` 必须为 `app`，`value` 支持[数组](https://webpack.js.org/configuration/entry-context/#entry)）
 
 2. 在 `output` 上设置 `filename: '[name].js'。` **注意** 这里 `[name].js` 是因为 `webpack` 将会打包生成多个文件，文件名称将以 `[name]` 规则来输出
 
@@ -59,7 +66,7 @@ module.exports = {
     module: {
         rules: [ // 各种 loaders 在这里添加
             {
-                test: /\.(wxss|wxml|json)$/,
+                test: /\.(jpg|png|gif|wxss|wxml|json)$/,
                 include: /src/,
                 loader: 'file-loader',
                 options: {
@@ -81,6 +88,18 @@ module.exports = {
 #### 开始开发小程序
 
 现在可以通过在终端输入 `webpack -w` 开始使用 webpack 开发微信小程序
+
+
+## API
+
+`new WXAppWebpackPlugin(options)`
+
+###### options
+
+- `includes` ([String]): 匹配引入非 `.js` 到 `webpack` 编译。默认为 `[**/*]`，也就是说，默认所有文件都会被 `webpack` 编译生成到输出目录
+- `excludes` ([String]): 去除匹配的文件。默认为空数组 `[]`
+- `dot` (Boolean): 是否引入 `.` 开头的文件。默认为 `false`
+- `bundleFileName` (String): 打包出来的 `.js` 文件名。默认为 `bundle.js`
 
 
 ## 注意
