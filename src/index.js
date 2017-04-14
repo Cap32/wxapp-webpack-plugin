@@ -17,44 +17,54 @@ const stripExt = (path) => {
 export default class WXAppPlugin {
 	constructor(options = {}) {
 		this.options = defaults(options || {}, {
-			includes: ['**/*'],
-			excludes: [],
+			clear: true,
+			include: [],
+			exclude: [],
 			dot: false, // Include `.dot` files
-			base: undefined,
-			bundleFileName: 'bundle.js',
+			scriptExt: '.js',
+			commonModuleName: 'common.js',
 			forceWebTarget: true,
 			assetsChunkName: '__assets_chunk_name__',
+			// base: undefined,
 		});
+		this.options.include = [].concat(this.options.include);
+		this.options.exclude = [].concat(this.options.exclude);
 	}
 
 	apply(compiler) {
-		const { forceWebTarget } = this.options;
+		const { forceWebTarget, clear } = this.options;
 		const { options } = compiler;
+		let isFirst = true;
 
 		if (forceWebTarget && options.target !== 'web') {
 			options.target = 'web';
 		}
 
-		compiler.plugin('run', async (compiler, callback) => {
-			try {
-				await this.run(compiler);
-				callback();
-			}
-			catch (err) {
-				callback(err);
-			}
-		});
+		compiler.plugin('run', this.try(async (compiler) => {
+			await this.run(compiler);
+		}));
 
-		compiler.plugin('watch-run', async (compiler, callback) => {
-			try {
-				await this.run(compiler.compiler);
-				callback();
+		compiler.plugin('watch-run', this.try(async (compiler) => {
+			await this.run(compiler.compiler);
+		}));
+
+		compiler.plugin('emit', this.try(async (compilation) => {
+			if (clear && isFirst) {
+				isFirst = false;
+				await this.clear(compilation);
 			}
-			catch (err) {
-				callback(err);
-			}
-		});
+		}));
 	}
+
+	try = (handler) => async (arg, callback) => {
+		try {
+			await handler(arg);
+			callback();
+		}
+		catch (err) {
+			callback(err);
+		}
+	};
 
 	getBase(compiler) {
 		const { base } = this.options;
@@ -99,23 +109,19 @@ export default class WXAppPlugin {
 		return context;
 	}
 
-	async getPages() {
-		const { base } = this;
-		const appJSONFile = resolve(base, 'app.json');
+	async getEntryResource() {
+		const appJSONFile = resolve(this.base, 'app.json');
 		const { pages = [] } = await readJson(appJSONFile);
-		return pages.map((page) => {
-			const { dir, name } = parse(page);
-			const filename = join(dir, name);
-			const filenameWithExt = `${filename}.js`;
-			return {
-				absolutePath: resolve(base, filenameWithExt),
-				filename,
-			};
-		});
+		return ['app'].concat(pages);
 	}
 
-	async clear(compiler) {
-		const { path } = compiler.options.output;
+	getFullScriptPath(path) {
+		const { base, options: { scriptExt } } = this;
+		return resolve(base, path + scriptExt);
+	}
+
+	async clear(compilation) {
+		const { path } = compilation.options.output;
 		await remove(path);
 	}
 
@@ -123,13 +129,17 @@ export default class WXAppPlugin {
 		compiler.apply(new MultiEntryPlugin(this.base, entries, chunkName));
 	}
 
-	compileAssets = (async (compiler) => {
+	async compileAssets(compiler) {
 		const {
-			includes,
-			excludes,
-			dot,
-			assetsChunkName,
-		} = this.options;
+			options: {
+				include,
+				exclude,
+				dot,
+				assetsChunkName,
+				scriptExt,
+			},
+			entryResources,
+		} = this;
 
 		compiler.plugin('compilation', (compilation) => {
 			compilation.plugin('before-chunk-assets', () => {
@@ -142,54 +152,61 @@ export default class WXAppPlugin {
 			});
 		});
 
-		const entries = await globby(includes, {
+		const patterns = entryResources
+			.map((resource) => `${resource}.*`)
+			.concat(include)
+		;
+
+		const entries = await globby(patterns, {
 			cwd: this.base,
 			nodir: true,
 			realpath: true,
-			ignore: ['**/*.js', ...excludes],
+			ignore: [`**/*${scriptExt}`, ...exclude],
 			dot,
 		});
 
 		this.addEntries(compiler, entries, assetsChunkName);
-	});
+	}
 
-	applyCommonsChunk(compiler, pages) {
+	applyCommonsChunk(compiler) {
 		const {
-			options: { bundleFileName },
+			options: { commonModuleName },
+			entryResources,
 		} = this;
 
-		const allPages = [resolve(this.base, 'app.js')]
-			.concat(pages.map(({ absolutePath }) => absolutePath))
-		;
+		const scripts = entryResources.map(::this.getFullScriptPath);
 
 		compiler.apply(new CommonsChunkPlugin({
-			name: stripExt(bundleFileName),
+			name: stripExt(commonModuleName),
 			minChunks: ({ resource }) => {
 				if (resource) {
-					return /\.js$/.test(resource) && !allPages.includes(resource);
+					return /\.js$/.test(resource) && !scripts.includes(resource);
 				}
 				return false;
 			},
 		}));
 	}
 
-	async compileJS(compiler) {
-		const pages = await this.getPages();
+	compileScripts(compiler) {
+		this.applyCommonsChunk(compiler);
 
-		this.applyCommonsChunk(compiler, pages);
-
-		pages.forEach(({ absolutePath, filename }) => {
-			this.addEntries(compiler, [absolutePath], filename);
-		});
+		this.entryResources
+			.filter((resource) => resource !== 'app')
+			.forEach((resource) => {
+				const fullPath = this.getFullScriptPath(resource);
+				this.addEntries(compiler, [fullPath], resource);
+			})
+		;
 	}
 
 	toModifyTemplate(compilation) {
-		const { bundleFileName } = this.options;
+		const { commonModuleName } = this.options;
 		const { jsonpFunction } = compilation.options.output;
+		const commonChunkName = stripExt(commonModuleName);
 
 		const injectModule = (filePath) => {
 			const relativePath = relative(dirname(filePath), './');
-			const bundle = join(relativePath, bundleFileName);
+			const bundle = join(relativePath, commonModuleName);
 			return '' +
 				`require("./${bundle}");` +
 				`var ${jsonpFunction}=global.${jsonpFunction};`
@@ -206,8 +223,8 @@ export default class WXAppPlugin {
 					.files
 					.filter((file) => !compilation.assets[file].hasInjectedModule)
 					.forEach((file) => {
-						const isBundleFile = chunk.name === 'bundle';
-						const inject = isBundleFile ? injectWindow : injectModule(file);
+						const isCommonFile = chunk.name === commonChunkName;
+						const inject = isCommonFile ? injectWindow : injectModule(file);
 						const asset = new ConcatSource(
 							inject,
 							compilation.assets[file],
@@ -226,12 +243,11 @@ export default class WXAppPlugin {
 
 	async run(compiler) {
 		this.base = this.getBase(compiler);
-
-		// await this.clear(compiler);
+		this.entryResources = await this.getEntryResource();
 
 		compiler.plugin('compilation', ::this.toModifyTemplate);
 
 		await this.compileAssets(compiler);
-		await this.compileJS(compiler);
+		this.compileScripts(compiler);
 	}
 }
