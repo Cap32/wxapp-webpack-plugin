@@ -2,7 +2,7 @@
 微信小程序 webpack 插件
 
 
-## 为什么要使用 webpack
+###### 为什么要使用 webpack
 
 很多前端开发者都使用过 [webpack](https://webpack.js.org/)，通过 webpack 开发 JavaScript 项目可以带来很多好处
 
@@ -12,15 +12,13 @@
 - 还有很多...
 
 
-## 为什么要使用这个插件
+###### 为什么要使用这个插件
 
 - 微信小程序开发需要有多个入口文件（如 `app.js`, `app.json`, `pages/index/index.js` 等等），使用这个插件只需要引入 `app.js` 即可，其余文件将会被自动引入
-- 若多个入口文件（如 `pages/index/index.js` 和 `pages/logs/logs.js`）引入有相同的模块，这个插件能避免重复打包相同模块
+- 若多个入口文件（如 `pages/index/index.js` 和 `pages/logs/logs.js`）引入有相同的模块，这个插件能避免重复打包相同模块。
 
 
 ## 使用方法
-
-**注意：在 `v0.0.0` 发布之前，使用方法可能会有所改变**
 
 #### 安装
 
@@ -34,9 +32,18 @@ yarn add -D wxapp-webpack-plugin
 
 2. 在 `output` 上设置 `filename: '[name].js'。` **注意** 这里 `[name].js` 是因为 `webpack` 将会打包生成多个文件，文件名称将以 `[name]` 规则来输出
 
-3. 添加 `file-loader` 到 `module.rules`。开发者也可以根据自己的需求，添加 `scss-loader` 之类的 `loader` 来实现编译各种格式文件
+3. 添加 `new WXAppWebpackPlugin()` 到 `plugins`
 
-4. 添加 `new WXAppWebpackPlugin()` 到 `plugins`
+###### `loader` 的使用提示
+
+为了使 `webpack` 能编译和输出非 `.js` 文件，配置时要按需添加各种 `loaders`。这里作者推荐使用以下几个对微信小程序开发很有用的 `loaders`：
+
+- [file-loader](https://github.com/webpack-contrib/file-loader): 用于输出 `*.json`，`*.wxss`，`*.jpg` 之类的文件
+- [css-loader](https://github.com/webpack-contrib/css-loader): 使 `webpack` 能编译或处理 `*.wxss` 上引用的文件
+- [wxml-loader](https://github.com/webpack-contrib/file-loader): 使 `webpack` 能编译或处理 `*.wxml` 上引用的文件
+
+开发者也可以根据自身需求和习惯，使用 `sass-loader` 之类的 `loader`。
+
 
 ###### 完整 webpack.config.js 示例
 
@@ -46,42 +53,56 @@ const WXAppWebpackPlugin = require('wxapp-webpack-plugin');
 
 module.exports = {
 
-    // 引入 `app.js`
-    entry: {
-        app: './src/app.js',
-    },
+  // 引入 `app.js`
+  entry: {
+    app: './src/app.js',
+  },
 
-    output: {
-        filename: '[name].js',
+  output: {
+    filename: '[name].js',
+    path: path.resolve(__dirname, 'dist'),
+  },
+  plugins: [
 
-        // 此处 `dist` 为微信开发者工具引入的开发目录
-        path: path.resolve(__dirname, 'dist'),
-    },
-    plugins: [
+    // 引入插件
+    new WXAppWebpackPlugin(),
 
-        // 引入插件
-        new WXAppWebpackPlugin(),
-
-    ],
-    module: {
-        rules: [ // 各种 loaders 在这里添加
-            {
-                test: /\.(jpg|png|gif|wxss|wxml|json)$/,
-                include: /src/,
-                loader: 'file-loader',
-                options: {
-                
-                    // 这是推荐的配置方式
-                    useRelativePath: true,
-                    name: '[name].[ext]',
-                }
-            },
+  ],
+  module: {
+    rules: [
+      {
+        test: /\.(jpg|png|gif|json)$/,
+        include: /src/,
+        loader: 'file-loader',
+        options: {
+          useRelativePath: true,
+          name: '[name].[ext]',
+        }
+      },
+      {
+        test: /\.wxss$/,
+        include: /src/,
+        use: [
+          {
+            loader: 'file-loader',
+            options: {
+              useRelativePath: true,
+              name: '[name].wxss',
+            }
+          },
+          {
+            loader: 'css-loader',
+          },
         ],
-    },
-    devtool: 'source-map',
-    resolve: {
-        modules: ['src', 'node_modules'],
-    },
+      },
+      {
+        test: /\.wxml$/,
+        include: /src/,
+        loader: 'wxml-loader',
+      },
+    ],
+  },
+  devtool: 'source-map', // 在开发时，推荐使用 `source-map` 辅助调试
 };
 ```
 
@@ -96,18 +117,14 @@ module.exports = {
 
 ###### options
 
-- `includes` ([String]): 匹配引入非 `.js` 到 `webpack` 编译。默认为 `['**/*']`，也就是说，默认所有文件都会被 `webpack` 编译生成到输出目录
-- `excludes` ([String]): 去除匹配的文件。默认为空数组 `[]`
-- `dot` (Boolean): 是否引入 `.` 开头的文件。默认为 `false`
-- `bundleFileName` (String): 打包出来的 `.js` 文件名。默认为 `bundle.js`
+- `clear` (Boolean): 在启动 `webpack` 时清空 `dist` 目录。默认为 `true`
+- `commonModuleName` (String): 公共 `js` 文件名。默认为 `common.js`
 
 
 ## 注意
 
 - 暂时只在 `webpack@v2.3.2` 测试通过，不确定其他版本下是否兼容性，欢迎提交反馈
 - 程序的开发方式与 [微信小程序开发文档](https://mp.weixin.qq.com/debug/wxadoc/dev/) 一样，开发者需要在 `src` （源）目录创建 `app.js`、`app.json`、`app.wxss`、`pages/index/index.js` 之类的文件进行开发
-- 如果要引入 `node_modules` 目录，那么推荐把相关依赖文件添加到 `package.json` 的 `dependencies` 上
-- 开发目录上的所有 `.js` 文件都将会被打包起来，请把无关的 `.js` 文件从开发目录上删掉，以免增大体积
 
 
 ## License
