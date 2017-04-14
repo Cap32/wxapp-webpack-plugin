@@ -2,12 +2,14 @@
 import { remove, readJson } from 'fs-promise';
 import { resolve, dirname, relative, join, parse } from 'path';
 import { optimize } from 'webpack';
-import { ConcatSource } from 'webpack-sources';
+import { ReplaceSource } from 'webpack-sources';
 import globby from 'globby';
 import { defaults } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 
 const { CommonsChunkPlugin } = optimize;
+const globalVar = 'global';
+const windowVar = 'window';
 
 const stripExt = (path) => {
 	const { dir, name } = parse(path);
@@ -23,7 +25,7 @@ export default class WXAppPlugin {
 			dot: false, // Include `.dot` files
 			scriptExt: '.js',
 			commonModuleName: 'common.js',
-			forceWebTarget: true,
+			forceTarget: true,
 			assetsChunkName: '__assets_chunk_name__',
 			// base: undefined,
 		});
@@ -32,13 +34,10 @@ export default class WXAppPlugin {
 	}
 
 	apply(compiler) {
-		const { forceWebTarget, clear } = this.options;
-		const { options } = compiler;
+		const { clear } = this.options;
 		let isFirst = true;
 
-		if (forceWebTarget && options.target !== 'web') {
-			options.target = 'web';
-		}
+		this.forceTarget(compiler);
 
 		compiler.plugin('run', this.try(async (compiler) => {
 			await this.run(compiler);
@@ -65,6 +64,19 @@ export default class WXAppPlugin {
 			callback(err);
 		}
 	};
+
+	forceTarget(compiler) {
+		const { forceTarget } = this.options;
+		const { options } = compiler;
+
+		if (forceTarget) {
+			if (options.target !== 'web') { options.target = 'web'; }
+			if (!options.node || options.node.global) {
+				options.node = options.node || {};
+				options.node.global = false;
+			}
+		}
+	}
 
 	getBase(compiler) {
 		const { base } = this.options;
@@ -204,41 +216,34 @@ export default class WXAppPlugin {
 		const { jsonpFunction } = compilation.options.output;
 		const commonChunkName = stripExt(commonModuleName);
 
-		const injectModule = (filePath) => {
-			const relativePath = relative(dirname(filePath), './');
-			const bundle = join(relativePath, commonModuleName);
-			return '' +
-				`require("./${bundle}");` +
-				`var ${jsonpFunction}=global.${jsonpFunction};`
-			;
-		};
-
-		const injectWindow = 'var window=global;';
-
-		compilation.plugin('optimize-chunk-assets', (chunks, callback) => {
-			chunks.forEach((chunk) => {
-				if (!chunk.isInitial()) { return; }
-
-				chunk
-					.files
-					.filter((file) => !compilation.assets[file].hasInjectedModule)
-					.forEach((file) => {
-						const isCommonFile = chunk.name === commonChunkName;
-						const inject = isCommonFile ? injectWindow : injectModule(file);
-						const asset = new ConcatSource(
-							inject,
-							compilation.assets[file],
-						);
-						compilation.assets[file] = asset;
-
-						// add a flag
-						asset.hasInjectedModule = true;
-					})
-				;
-			});
-
-			callback();
+		// inject chunk entries
+		compilation.chunkTemplate.plugin('render', (core, { name }) => {
+			if (this.entryResources.includes(name)) {
+				const relativePath = relative(dirname(name), `./${commonModuleName}`);
+				const jsonpRegExp = new RegExp(jsonpFunction);
+				const source = core.source();
+				const { index } = jsonpRegExp.exec(source);
+				const replaceSource = new ReplaceSource(core);
+				const injectContent = `require("./${relativePath}");${globalVar}.`;
+				replaceSource.insert(index, injectContent);
+				return replaceSource;
+			}
+			return core;
 		});
+
+		// replace `window` to `global` in common chunk
+		compilation.mainTemplate.plugin('bootstrap', (source, chunk) => {
+			const windowRegExp = new RegExp(windowVar, 'g');
+			if (chunk.name === commonChunkName) {
+				return source.replace(windowRegExp, globalVar);
+			}
+			return source;
+		});
+
+		// override `require.ensure()`
+		compilation.mainTemplate.plugin('require-ensure', () =>
+			'throw new Error("Not chunk loading available");'
+		);
 	}
 
 	async run(compiler) {
