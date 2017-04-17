@@ -6,6 +6,7 @@ import { ReplaceSource } from 'webpack-sources';
 import globby from 'globby';
 import { defaults } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
+import SingleEntryPlugin from 'webpack/lib/SingleEntryPlugin';
 
 const { CommonsChunkPlugin } = optimize;
 const globalVar = 'global';
@@ -199,14 +200,20 @@ export default class WXAppPlugin {
 		}));
 	}
 
+	addScriptEntry(compiler, entry, name) {
+		compiler.plugin('make', (compilation, callback) => {
+			const dep = SingleEntryPlugin.createDependency(entry, name);
+			compilation.addEntry(this.base, dep, name, callback);
+		});
+	}
+
 	compileScripts(compiler) {
 		this.applyCommonsChunk(compiler);
-
 		this.entryResources
 			.filter((resource) => resource !== 'app')
 			.forEach((resource) => {
 				const fullPath = this.getFullScriptPath(resource);
-				this.addEntries(compiler, [fullPath], resource);
+				this.addScriptEntry(compiler, fullPath, resource);
 			})
 		;
 	}
@@ -223,7 +230,7 @@ export default class WXAppPlugin {
 				const jsonpRegExp = new RegExp(jsonpFunction);
 				const source = core.source();
 				const injectContent = `require("./${relativePath}");${globalVar}.`;
-				if (!source.match(injectContent)) {
+				if (!source.includes(injectContent)) {
 					const { index } = jsonpRegExp.exec(source);
 					const replaceSource = new ReplaceSource(core);
 					replaceSource.insert(index, injectContent);
@@ -254,7 +261,7 @@ export default class WXAppPlugin {
 
 		compiler.plugin('compilation', ::this.toModifyTemplate);
 
-		await this.compileAssets(compiler);
 		this.compileScripts(compiler);
+		await this.compileAssets(compiler);
 	}
 }
