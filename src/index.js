@@ -222,11 +222,13 @@ export default class WXAppPlugin {
 				const relativePath = relative(dirname(name), `./${commonModuleName}`);
 				const jsonpRegExp = new RegExp(jsonpFunction);
 				const source = core.source();
-				const { index } = jsonpRegExp.exec(source);
-				const replaceSource = new ReplaceSource(core);
 				const injectContent = `require("./${relativePath}");${globalVar}.`;
-				replaceSource.insert(index, injectContent);
-				return replaceSource;
+				if (!source.match(injectContent)) {
+					const { index } = jsonpRegExp.exec(source);
+					const replaceSource = new ReplaceSource(core);
+					replaceSource.insert(index, injectContent);
+					return replaceSource;
+				}
 			}
 			return core;
 		});
