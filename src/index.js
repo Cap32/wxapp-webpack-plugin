@@ -1,5 +1,5 @@
 
-import { remove, readJson } from 'fs-promise';
+import { remove, readJson } from 'fs-extra';
 import { resolve, dirname, relative, join, parse } from 'path';
 import { optimize } from 'webpack';
 import { ReplaceSource } from 'webpack-sources';
