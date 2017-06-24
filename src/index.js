@@ -193,7 +193,7 @@ export default class WXAppPlugin {
 			name: stripExt(commonModuleName),
 			minChunks: ({ resource }) => {
 				if (resource) {
-					return /\.js$/.test(resource) && !scripts.includes(resource);
+					return /\.js$/.test(resource) && scripts.indexOf(resource) < 0;
 				}
 				return false;
 			},
@@ -225,24 +225,14 @@ export default class WXAppPlugin {
 
 		// inject chunk entries
 		compilation.chunkTemplate.plugin('render', (core, { name }) => {
-			if (this.entryResources.includes(name)) {
+			if (this.entryResources.indexOf(name) >= 0) {
 				const relativePath = relative(dirname(name), `./${commonModuleName}`);
 				const posixPath = relativePath.replace(/\\/g, '/');
-
-
-				// const relativePath = relative(dirname(name), `./${commonModuleName}`).replace(/\//g, '\\');
-				// const posixPath = relativePath;
-
-
 				const jsonpRegExp = new RegExp(jsonpFunction);
 				const source = core.source();
 				const injectContent = `require("./${posixPath}");${globalVar}.`;
 
-				console.log('relativePath', relativePath);
-				console.log('posixPath', posixPath);
-				console.log('injectContent', `require("./${posixPath}");`);
-
-				if (!source.includes(injectContent)) {
+				if (source.indexOf(injectContent) < 0) {
 					const { index } = jsonpRegExp.exec(source);
 					const replaceSource = new ReplaceSource(core);
 					replaceSource.insert(index, injectContent);
