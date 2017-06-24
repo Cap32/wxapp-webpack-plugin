@@ -1,3 +1,38 @@
+# fix line endings on Windows and checkout all strings with \r\n
+init:
+  - git config --global core.autocrlf true
+
+# Test against this version of Node.js
+environment:
+  matrix:
+    # node.js
+    - nodejs_version: "8"
+    - nodejs_version: "7"
+    - nodejs_version: "6"
+    - nodejs_version: "5"
+    - nodejs_version: "4"
+
 platform:
   - x86
   - x64
+
+# Install scripts. (runs after repo cloning)
+install:
+  # Get the latest stable version of Node.js or io.js
+  - ps: Install-Product node $env:nodejs_version
+  # install modules
+  - yarn
+
+
+# Post-install test scripts.
+test_script:
+  # Output useful info for debugging
+  - node --version && yarn --version
+  # run tests
+  - yarn test
+
+# Don't actually build.
+build: off
+
+matrix:
+  fast_finish: true
