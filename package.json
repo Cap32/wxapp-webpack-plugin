@@ -41,7 +41,7 @@
     "jest": "^19.0.2",
     "mkdirp": "^0.5.1",
     "rimraf": "^2.6.1",
-    "webpack": "^2.3.2"
+    "webpack": "^3.0.0"
   },
   "dependencies": {
     "fs-promise": "^2.0.2",
