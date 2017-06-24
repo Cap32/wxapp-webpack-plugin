@@ -227,9 +227,10 @@ export default class WXAppPlugin {
 		compilation.chunkTemplate.plugin('render', (core, { name }) => {
 			if (this.entryResources.includes(name)) {
 				const relativePath = relative(dirname(name), `./${commonModuleName}`);
+				const posixPath = relativePath.replace(/\\\\/g, '/');
 				const jsonpRegExp = new RegExp(jsonpFunction);
 				const source = core.source();
-				const injectContent = `require("./${relativePath}");${globalVar}.`;
+				const injectContent = `require("./${posixPath}");${globalVar}.`;
 				if (!source.includes(injectContent)) {
 					const { index } = jsonpRegExp.exec(source);
 					const replaceSource = new ReplaceSource(core);
