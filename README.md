@@ -1,4 +1,8 @@
 # wxapp-webpack-plugin
+
+[![Build Status](https://travis-ci.org/Cap32/wxapp-webpack-plugin.svg?branch=master)](https://travis-ci.org/Cap32/wxapp-webpack-plugin) [![Build status](https://ci.appveyor.com/api/projects/status/7scpj8g00a4cacpr/branch/master?svg=true)](https://ci.appveyor.com/project/Cap32/wxapp-webpack-plugin/branch/master)
+
+
 微信小程序 webpack 插件
 
 
