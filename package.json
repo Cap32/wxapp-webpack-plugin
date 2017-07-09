@@ -50,6 +50,9 @@
     "lodash": "^4.17.4",
     "webpack-sources": "^0.2.3"
   },
+  "peerDependencies": {
+    "webpack": "^2.2.0-rc || ^3"
+  },
   "jest": {
     "modulePathIgnorePatterns": [
       "node_modules",
