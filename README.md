@@ -49,70 +49,7 @@ yarn add -D wxapp-webpack-plugin
 开发者也可以根据自身需求和习惯，使用 `sass-loader` 之类的 `loader`。
 
 
-###### 完整 webpack.config.js 示例
-
-```js
-const path = require('path');
-const WXAppWebpackPlugin = require('wxapp-webpack-plugin');
-
-module.exports = {
-
-  // 引入 `app.js`
-  entry: {
-    app: './src/app.js',
-  },
-
-  output: {
-    filename: '[name].js',
-    path: path.resolve(__dirname, 'dist'),
-  },
-  plugins: [
-
-    // 引入插件
-    new WXAppWebpackPlugin(),
-
-  ],
-  module: {
-    rules: [
-      {
-        test: /\.(jpg|png|gif|json)$/,
-        include: /src/,
-        loader: 'file-loader',
-        options: {
-          useRelativePath: true,
-          name: '[name].[ext]',
-        }
-      },
-      {
-        test: /\.wxss$/,
-        include: /src/,
-        use: [
-          {
-            loader: 'file-loader',
-            options: {
-              useRelativePath: true,
-              name: '[name].wxss',
-            }
-          },
-          {
-            loader: 'css-loader',
-          },
-        ],
-      },
-      {
-        test: /\.wxml$/,
-        include: /src/,
-        loader: 'wxml-loader',
-      },
-    ],
-  },
-  devtool: 'source-map', // 在开发时，推荐使用 `source-map` 辅助调试
-};
-```
-
-#### 开始开发小程序
-
-现在可以通过在终端输入 `webpack -w` 开始使用 webpack 开发微信小程序
+**完整的项目开发脚手架，请查看 [wxapp-boilerplate](https://github.com/cantonjs/wxapp-boilerplate)**
 
 
 ## API
