@@ -44,7 +44,7 @@ yarn add -D wxapp-webpack-plugin
 
 - [file-loader](https://github.com/webpack-contrib/file-loader): 用于输出 `*.json`，`*.wxss`，`*.jpg` 之类的文件
 - [css-loader](https://github.com/webpack-contrib/css-loader): 使 `webpack` 能编译或处理 `*.wxss` 上引用的文件
-- [wxml-loader](https://github.com/webpack-contrib/file-loader): 使 `webpack` 能编译或处理 `*.wxml` 上引用的文件
+- [wxml-loader](https://github.com/Cap32/wxml-loader): 使 `webpack` 能编译或处理 `*.wxml` 上引用的文件
 
 开发者也可以根据自身需求和习惯，使用 `sass-loader` 之类的 `loader`。
 
