@@ -60,12 +60,13 @@ yarn add -D wxapp-webpack-plugin
 
 - `clear` (Boolean): 在启动 `webpack` 时清空 `dist` 目录。默认为 `true`
 - `commonModuleName` (String): 公共 `js` 文件名。默认为 `common.js`
+- `global` (String): 全局对象名。在微信小程序上，该值应该为 `wx`，在支付宝小程序上，该值应该为 `my`。默认为 `wx`
 
 
-## 注意
+## 提示
 
-- 暂时只在 `webpack@v2.3.2` 测试通过，不确定其他版本下是否兼容性，欢迎提交反馈
 - 程序的开发方式与 [微信小程序开发文档](https://mp.weixin.qq.com/debug/wxadoc/dev/) 一样，开发者需要在 `src` （源）目录创建 `app.js`、`app.json`、`app.wxss`、`pages/index/index.js` 之类的文件进行开发
+- 如果需要用 `wxapp-webpack-plugin` 来开发支付宝小程序，那么需要在确保在 `options` 上配置 `{ global: "my" }`
 
 
 ## License
