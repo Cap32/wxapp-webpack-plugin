@@ -9,8 +9,6 @@ import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 import SingleEntryPlugin from 'webpack/lib/SingleEntryPlugin';
 
 const { CommonsChunkPlugin } = optimize;
-const globalVar = 'global';
-const windowVar = 'window';
 
 const stripExt = (path) => {
 	const { dir, name } = parse(path);
@@ -20,6 +18,7 @@ const stripExt = (path) => {
 export default class WXAppPlugin {
 	constructor(options = {}) {
 		this.options = defaults(options || {}, {
+			global: 'wx',
 			clear: true,
 			include: [],
 			exclude: [],
@@ -219,7 +218,7 @@ export default class WXAppPlugin {
 	}
 
 	toModifyTemplate(compilation) {
-		const { commonModuleName } = this.options;
+		const { commonModuleName, global: globalVar } = this.options;
 		const { jsonpFunction } = compilation.options.output;
 		const commonChunkName = stripExt(commonModuleName);
 
@@ -244,7 +243,7 @@ export default class WXAppPlugin {
 
 		// replace `window` to `global` in common chunk
 		compilation.mainTemplate.plugin('bootstrap', (source, chunk) => {
-			const windowRegExp = new RegExp(windowVar, 'g');
+			const windowRegExp = new RegExp('window', 'g');
 			if (chunk.name === commonChunkName) {
 				return source.replace(windowRegExp, globalVar);
 			}

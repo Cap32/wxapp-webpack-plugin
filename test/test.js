@@ -6,6 +6,7 @@ test('wxapp-webpack-plugin', () => {
 
 	stdout && console.log(stdout);
 
+	global.wx = {};
 	global.getApp = jest.fn();
 	global.App = jest.fn();
 	global.Page = jest.fn();
