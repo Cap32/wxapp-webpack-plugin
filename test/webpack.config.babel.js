@@ -1,6 +1,6 @@
 
 import path from 'path';
-import WXAppWebpackPlugin from '../src';
+import WXAppWebpackPlugin, { Targets } from '../src';
 
 export default {
 	entry: {
@@ -10,6 +10,7 @@ export default {
 		filename: '[name].js',
 		path: path.resolve(__dirname, 'dist'),
 	},
+	target: Targets.Wechat,
 	module: {
 		rules: [
 			{

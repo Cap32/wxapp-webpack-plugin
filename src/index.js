@@ -1,12 +1,14 @@
 
 import { remove, readJson } from 'fs-extra';
 import { resolve, dirname, relative, join, parse } from 'path';
-import { optimize } from 'webpack';
+import { optimize, LoaderTargetPlugin, JsonpTemplatePlugin } from 'webpack';
 import { ReplaceSource } from 'webpack-sources';
 import globby from 'globby';
 import { defaults } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 import SingleEntryPlugin from 'webpack/lib/SingleEntryPlugin';
+import FunctionModulePlugin from 'webpack/lib/FunctionModulePlugin';
+import NodeSourcePlugin from 'webpack/lib/node/NodeSourcePlugin';
 
 const { CommonsChunkPlugin } = optimize;
 
@@ -15,10 +17,24 @@ const stripExt = (path) => {
 	return join(dir, name);
 };
 
+const miniProgramTarget = (compiler) => {
+	const { options } = compiler;
+	compiler.apply(
+		new JsonpTemplatePlugin(options.output),
+		new FunctionModulePlugin(options.output),
+		new NodeSourcePlugin(options.node),
+		new LoaderTargetPlugin('web'),
+	);
+};
+
+export const Targets = {
+	Wechat(compiler) { return miniProgramTarget(compiler); },
+	Alipay(compiler) { return miniProgramTarget(compiler); },
+};
+
 export default class WXAppPlugin {
 	constructor(options = {}) {
 		this.options = defaults(options || {}, {
-			global: 'wx',
 			clear: true,
 			include: [],
 			exclude: [],
@@ -70,7 +86,10 @@ export default class WXAppPlugin {
 		const { options } = compiler;
 
 		if (forceTarget) {
-			if (options.target !== 'web') { options.target = 'web'; }
+			const { target } = options;
+			if (target !== Targets.Wechat && target !== Targets.Alipay) {
+				options.target = Targets.Wechat;
+			}
 			if (!options.node || options.node.global) {
 				options.node = options.node || {};
 				options.node.global = false;
@@ -218,9 +237,10 @@ export default class WXAppPlugin {
 	}
 
 	toModifyTemplate(compilation) {
-		const { commonModuleName, global: globalVar } = this.options;
-		const { jsonpFunction } = compilation.options.output;
+		const { commonModuleName } = this.options;
+		const { output: { jsonpFunction }, target } = compilation.options;
 		const commonChunkName = stripExt(commonModuleName);
+		const globalVar = target.name === 'Alipay' ? 'my' : 'wx';
 
 		// inject chunk entries
 		compilation.chunkTemplate.plugin('render', (core, { name }) => {
