@@ -54,22 +54,41 @@ yarn add -D wxapp-webpack-plugin
 
 ## API
 
-#### `new WXAppWebpackPlugin(options)`
+#### WXAppWebpackPlugin
 
-###### options
+###### 用法
+
+webpack.config.babel.js
+
+```js
+import WXAppWebpackPlugin from 'wxapp-webpack-plugin';
+export default {
+  // ...configs,
+  plugins: [
+    // ...other,
+    new WXAppWebpackPlugin(options)
+  ],
+};
+```
+
+
+###### Options
+
+所有 `Options` 均为可选
 
 - `clear` (Boolean): 在启动 `webpack` 时清空 `dist` 目录。默认为 `true`
 - `commonModuleName` (String): 公共 `js` 文件名。默认为 `common.js`
 
 #### `Targets`
 
-Webpack target 值，目前有 `Targets.Wechat` 和 `Targets.Alipay`，如果不配置，webpack target 将会自动设为 `Targets.Wechat`。如果需要开发支付宝小程序，则改为 `Targets.Alipay`开发者可以通过 `process.env.TARGET` 之类的配置来动态输出。
+Webpack target 值，目前有 `Targets.Wechat` 和 `Targets.Alipay`，如果不配置，webpack target 将会自动设为 `Targets.Wechat`。如果需要开发支付宝小程序，则改为 `Targets.Alipay`。开发者也可以通过 `process.env.TARGET` 之类的配置来动态输出。
 
-###### Example
+###### 示例
+
+webpack.config.babel.js
 
 ```js
 import WXAppWebpackPlugin, { Targets } from 'wxapp-webpack-plugin';
-
 export default {
   // ...configs,
   target: Targets[process.env.TARGET || 'Wechat'],
