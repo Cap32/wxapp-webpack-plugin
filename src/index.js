@@ -250,7 +250,7 @@ export default class WXAppPlugin {
 				const source = core.source();
 
 				// eslint-disable-next-line max-len
-				const injectContent = `; function webpackJsonp() { require("./${posixPath}"); ${globalVar}.webpackJsonp.apply(wx, arguments); }`;
+				const injectContent = `; function webpackJsonp() { require("./${posixPath}"); ${globalVar}.webpackJsonp.apply(null, arguments); }`;
 
 				if (source.indexOf(injectContent) < 0) {
 					const concatSource = new ConcatSource(core);
