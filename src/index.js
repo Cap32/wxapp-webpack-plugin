@@ -2,7 +2,7 @@
 import { remove, readJson } from 'fs-extra';
 import { resolve, dirname, relative, join, parse } from 'path';
 import { optimize, LoaderTargetPlugin, JsonpTemplatePlugin } from 'webpack';
-import { ReplaceSource } from 'webpack-sources';
+import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
 import { defaults } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
@@ -238,7 +238,7 @@ export default class WXAppPlugin {
 
 	toModifyTemplate(compilation) {
 		const { commonModuleName } = this.options;
-		const { output: { jsonpFunction }, target } = compilation.options;
+		const { target } = compilation.options;
 		const commonChunkName = stripExt(commonModuleName);
 		const globalVar = target.name === 'Alipay' ? 'my' : 'wx';
 
@@ -247,15 +247,15 @@ export default class WXAppPlugin {
 			if (this.entryResources.indexOf(name) >= 0) {
 				const relativePath = relative(dirname(name), `./${commonModuleName}`);
 				const posixPath = relativePath.replace(/\\/g, '/');
-				const jsonpRegExp = new RegExp(jsonpFunction);
 				const source = core.source();
-				const injectContent = `require("./${posixPath}");${globalVar}.`;
+
+				// eslint-disable-next-line max-len
+				const injectContent = `; function webpackJsonp() { require("./${posixPath}"); ${globalVar}.webpackJsonp.apply(wx, arguments); }`;
 
 				if (source.indexOf(injectContent) < 0) {
-					const { index } = jsonpRegExp.exec(source);
-					const replaceSource = new ReplaceSource(core);
-					replaceSource.insert(index, injectContent);
-					return replaceSource;
+					const concatSource = new ConcatSource(core);
+					concatSource.add(injectContent);
+					return concatSource;
 				}
 			}
 			return core;
