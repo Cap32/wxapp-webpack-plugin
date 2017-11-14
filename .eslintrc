@@ -60,6 +60,7 @@
         "__DEV__": true,
         "App": true,
         "Page": true,
+        "Component": true,
         "wx": true,
         "getApp": true,
     },

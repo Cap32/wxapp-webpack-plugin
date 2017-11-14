@@ -4,7 +4,7 @@ import { resolve, dirname, relative, join, parse } from 'path';
 import { optimize, LoaderTargetPlugin, JsonpTemplatePlugin } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
-import { defaults } from 'lodash';
+import { defaults, values } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 import SingleEntryPlugin from 'webpack/lib/SingleEntryPlugin';
 import FunctionModulePlugin from 'webpack/lib/FunctionModulePlugin';
@@ -143,7 +143,26 @@ export default class WXAppPlugin {
 	async getEntryResource() {
 		const appJSONFile = resolve(this.base, 'app.json');
 		const { pages = [] } = await readJson(appJSONFile);
-		return ['app'].concat(pages);
+		const components = new Set();
+		for (const page of pages) {
+			await this.getComponents(components, resolve(this.base, page));
+		}
+		return ['app', ...pages, ...components];
+	}
+
+	async getComponents(components, instance) {
+		const { usingComponents = {} } =
+			await readJson(`${instance}.json`).catch(
+				err => err && err.code !== 'ENOENT' && console.error(err)
+			) || {};
+		const componentBase = parse(instance).dir;
+		for (const relativeComponent of values(usingComponents)) {
+			const component = resolve(componentBase, relativeComponent);
+			if (!components.has(component)) {
+				components.add(relative(this.base, component));
+				await this.getComponents(components, component);
+			}
+		}
 	}
 
 	getFullScriptPath(path) {
