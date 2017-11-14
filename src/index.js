@@ -143,7 +143,24 @@ export default class WXAppPlugin {
 	async getEntryResource() {
 		const appJSONFile = resolve(this.base, 'app.json');
 		const { pages = [] } = await readJson(appJSONFile);
-		return ['app'].concat(pages);
+		const components = new Set();
+		for (const page of pages) {
+			await this.getComponents(components, resolve(this.base, page));
+		}
+		return ['app', ...pages, ...components];
+	}
+
+	async getComponents(components, instance) {
+		const { usingComponents = {} } =
+			await readJson(`${instance}.json`).catch(::console.error);
+		const componentBase = parse(instance).dir;
+		for (const relativeComponent of Object.values(usingComponents)) {
+			const component = resolve(componentBase, relativeComponent);
+			if (!components.has(component)) {
+				components.add(relative(this.base, component));
+				await this.getComponents(components, component);
+			}
+		}
 	}
 
 	getFullScriptPath(path) {

@@ -1,0 +1,4 @@
+<view>
+  <view>'Log Component loaded.'</view>
+  <common-component></common-component>
+</view>
