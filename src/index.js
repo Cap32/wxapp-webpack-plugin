@@ -152,7 +152,9 @@ export default class WXAppPlugin {
 
 	async getComponents(components, instance) {
 		const { usingComponents = {} } =
-			await readJson(`${instance}.json`).catch(::console.error);
+			await readJson(`${instance}.json`).catch(
+				err => err && err.code !== 'ENOENT' && console.error(err)
+			) || {};
 		const componentBase = parse(instance).dir;
 		for (const relativeComponent of values(usingComponents)) {
 			const component = resolve(componentBase, relativeComponent);
