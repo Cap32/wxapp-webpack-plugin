@@ -4,7 +4,7 @@ import { resolve, dirname, relative, join, parse } from 'path';
 import { optimize, LoaderTargetPlugin, JsonpTemplatePlugin } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
-import { defaults } from 'lodash';
+import { defaults, values } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 import SingleEntryPlugin from 'webpack/lib/SingleEntryPlugin';
 import FunctionModulePlugin from 'webpack/lib/FunctionModulePlugin';
@@ -154,7 +154,7 @@ export default class WXAppPlugin {
 		const { usingComponents = {} } =
 			await readJson(`${instance}.json`).catch(::console.error);
 		const componentBase = parse(instance).dir;
-		for (const relativeComponent of Object.values(usingComponents)) {
+		for (const relativeComponent of values(usingComponents)) {
 			const component = resolve(componentBase, relativeComponent);
 			if (!components.has(component)) {
 				components.add(relative(this.base, component));
