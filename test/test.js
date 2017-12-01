@@ -1,10 +1,24 @@
 
+import rimraf from 'rimraf';
 import { execSync } from 'child_process';
+import { resolve } from 'path';
 
-test('wxapp-webpack-plugin', () => {
-	const stdout = execSync('webpack', { cwd: __dirname, encoding: 'utf8' });
-
-	stdout && console.log(stdout);
+const createTest = function createTest(ext) {
+	try {
+		const stdout = execSync('webpack', {
+			cwd: __dirname,
+			encoding: 'utf8',
+			env: {
+				...process.env,
+				TEST_EXT: ext,
+			},
+		});
+		stdout && console.log(stdout);
+	}
+	catch (err) {
+		err.stdout && console.error(err.stdout);
+		expect(err).toBe(undefined);
+	}
 
 	global.wx = {};
 	global.getApp = jest.fn();
@@ -17,4 +31,24 @@ test('wxapp-webpack-plugin', () => {
 
 	expect(global.App.mock.calls.length).toBe(1);
 	expect(global.Page.mock.calls.length).toBe(2);
+};
+
+afterEach(() => {
+	rimraf.sync(resolve('test/dist'));
+	Reflect.deleteProperty(global, 'wx');
+	Reflect.deleteProperty(global, 'getApp');
+	Reflect.deleteProperty(global, 'App');
+	Reflect.deleteProperty(global, 'Page');
+	delete require.cache[require.resolve('./dist/app')];
+	delete require.cache[require.resolve('./dist/pages/index/index')];
+	delete require.cache[require.resolve('./dist/pages/logs/logs')];
 });
+
+test('js', () => {
+	createTest('js');
+});
+
+// TODO
+// test('ts', () => {
+// 	createTest('ts');
+// });

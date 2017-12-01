@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "查看启动日志",
+  "usingComponents": {
+    "log-component": "../../components/log-component/log-component"
+  }
+}

@@ -1,6 +1,6 @@
 
 import { flow } from 'lodash';
-import { formatTime } from 'utils/util.js';
+import { formatTime } from 'utils/util';
 
 App({
 	onLaunch() {

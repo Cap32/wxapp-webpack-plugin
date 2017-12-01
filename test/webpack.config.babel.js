@@ -2,9 +2,13 @@
 import path from 'path';
 import WXAppWebpackPlugin, { Targets } from '../src';
 
+const ext = process.env.TEST_EXT || 'js';
+
+const include = new RegExp(`src_${ext}`);
+
 export default {
 	entry: {
-		app: ['./src/utils/bomPolyfill.js', './src/app.js'],
+		app: [`./src_${ext}/utils/bomPolyfill.js`, `./src_${ext}/app`],
 	},
 	output: {
 		filename: '[name].js',
@@ -14,8 +18,8 @@ export default {
 	module: {
 		rules: [
 			{
-				test: /\.js$/,
-				include: /src/,
+				test: /\.(ts|js)$/,
+				include,
 				loader: 'babel-loader',
 				options: {
 					presets: ['es2015', 'stage-0'],
@@ -24,7 +28,7 @@ export default {
 			},
 			{
 				test: /\.(wxss|wxml|json)$/,
-				include: /src/,
+				include,
 				loader: 'file-loader',
 				options: {
 					useRelativePath: true,
@@ -34,10 +38,13 @@ export default {
 		],
 	},
 	plugins: [
-		new WXAppWebpackPlugin(),
+		new WXAppWebpackPlugin({
+			scriptExt: `.${ext}`,
+		}),
 	],
 	devtool: 'source-map',
 	resolve: {
-		modules: ['src', 'node_modules'],
+		modules: [`src_${ext}`, 'node_modules'],
+		extensions: ['.js', '.ts', '.json'],
 	},
 };
