@@ -19,7 +19,8 @@
 ###### 为什么要使用这个插件
 
 - 微信小程序开发需要有多个入口文件（如 `app.js`, `app.json`, `pages/index/index.js` 等等），使用这个插件只需要引入 `app.js` 即可，其余文件将会被自动引入
-- 若多个入口文件（如 `pages/index/index.js` 和 `pages/logs/logs.js`）引入有相同的模块，这个插件能避免重复打包相同模块。
+- 若多个入口文件（如 `pages/index/index.js` 和 `pages/logs/logs.js`）引入有相同的模块，这个插件能避免重复打包相同模块
+- 支持自动复制 `app.json` 上的 `tabbar` 图片 (v0.17.0 或以上)
 
 
 ## 使用方法
