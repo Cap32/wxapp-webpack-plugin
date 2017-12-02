@@ -213,7 +213,7 @@ export default class WXAppPlugin {
 	toAddTabBarIconsDependencies(compilation) {
 		const { fileDependencies } = compilation;
 		this.tabBarIcons.forEach((iconPath) => {
-			if (!fileDependencies.includes(iconPath)) {
+			if (!~fileDependencies.indexOf(iconPath)) {
 				fileDependencies.push(iconPath);
 			}
 		});
