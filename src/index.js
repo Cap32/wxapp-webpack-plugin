@@ -1,5 +1,5 @@
 
-import { remove, readJson, existsSync } from 'fs-extra';
+import { remove, readJson, existsSync, stat, readFile } from 'fs-extra';
 import { resolve, dirname, relative, join, parse } from 'path';
 import { optimize, LoaderTargetPlugin, JsonpTemplatePlugin } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
@@ -94,6 +94,12 @@ export default class WXAppPlugin {
 				isFirst = false;
 				await this.clear(compilation);
 			}
+
+			await this.toEmitTabBarIcons(compilation);
+		}));
+
+		compiler.plugin('after-emit', this.try(async (compilation) => {
+			await this.toAddTabBarIconsDependencies(compilation);
 		}));
 	}
 
@@ -172,13 +178,57 @@ export default class WXAppPlugin {
 		return context;
 	}
 
+	async getTabBarIcons(tabBar) {
+		const tabBarIcons = new Set();
+		const tabBarList = tabBar.list || [];
+		for (const tabBarItem of tabBarList) {
+			if (tabBarItem.iconPath) {
+				tabBarIcons.add(tabBarItem.iconPath);
+			}
+			if (tabBarItem.selectedIconPath) {
+				tabBarIcons.add(tabBarItem.selectedIconPath);
+			}
+		}
+
+		this.tabBarIcons = tabBarIcons;
+	}
+
+	async toEmitTabBarIcons(compilation) {
+		const emitIcons = [];
+		this.tabBarIcons.forEach((iconPath) => {
+			const iconSrc = resolve(this.base, iconPath);
+			const toEmitIcon = async () => {
+				const iconStat = await stat(iconSrc);
+				const iconSource = await readFile(iconSrc);
+				compilation.assets[iconPath] = {
+					size: () => iconStat.size,
+					source: () => iconSource,
+				};
+			};
+			emitIcons.push(toEmitIcon());
+		});
+		await Promise.all(emitIcons);
+	}
+
+	toAddTabBarIconsDependencies(compilation) {
+		const { fileDependencies } = compilation;
+		this.tabBarIcons.forEach((iconPath) => {
+			if (!fileDependencies.includes(iconPath)) {
+				fileDependencies.push(iconPath);
+			}
+		});
+	}
+
 	async getEntryResource() {
 		const appJSONFile = resolve(this.base, 'app.json');
-		const { pages = [] } = await readJson(appJSONFile);
+		const { pages = [], tabBar = {} } = await readJson(appJSONFile);
+
 		const components = new Set();
 		for (const page of pages) {
 			await this.getComponents(components, resolve(this.base, page));
 		}
+
+		this.getTabBarIcons(tabBar);
 		return ['app', ...pages, ...components];
 	}
 
@@ -349,9 +399,7 @@ export default class WXAppPlugin {
 	async run(compiler) {
 		this.base = this.getBase(compiler);
 		this.entryResources = await this.getEntryResource();
-
 		compiler.plugin('compilation', ::this.toModifyTemplate);
-
 		this.compileScripts(compiler);
 		await this.compileAssets(compiler);
 	}
