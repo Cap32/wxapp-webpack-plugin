@@ -1,16 +1,26 @@
 
-import { remove, readJson } from 'fs-extra';
+import { remove, readJson, existsSync } from 'fs-extra';
 import { resolve, dirname, relative, join, parse } from 'path';
 import { optimize, LoaderTargetPlugin, JsonpTemplatePlugin } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
-import { defaults, values } from 'lodash';
+import { defaults, values, uniq } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 import SingleEntryPlugin from 'webpack/lib/SingleEntryPlugin';
 import FunctionModulePlugin from 'webpack/lib/FunctionModulePlugin';
 import NodeSourcePlugin from 'webpack/lib/node/NodeSourcePlugin';
 
 const { CommonsChunkPlugin } = optimize;
+
+const deprecated = function deprecated(obj, key, adapter, explain) {
+	if (deprecated.warned.has(key)) { return; }
+	const val = obj[key];
+	if (typeof val === 'undefined') { return; }
+	deprecated.warned.add(key);
+	adapter(val);
+	console.warn('[WXAppPlugin]', explain);
+};
+deprecated.warned = new Set();
 
 const stripExt = (path) => {
 	const { dir, name } = parse(path);
@@ -39,12 +49,19 @@ export default class WXAppPlugin {
 			include: [],
 			exclude: [],
 			dot: false, // Include `.dot` files
-			scriptExt: '.js',
+			extensions: ['.js'],
 			commonModuleName: 'common.js',
 			forceTarget: true,
 			assetsChunkName: '__assets_chunk_name__',
 			// base: undefined,
 		});
+		deprecated(
+			this.options,
+			'scriptExt',
+			(val) => this.options.extensions.unshift(val),
+			'Option `scriptExt` is deprecated. Please use `extensions` instead',
+		);
+		this.options.extensions = uniq(this.options.extensions);
 		this.options.include = [].concat(this.options.include);
 		this.options.exclude = [].concat(this.options.exclude);
 	}
@@ -98,7 +115,7 @@ export default class WXAppPlugin {
 	}
 
 	getBase(compiler) {
-		const { base } = this.options;
+		const { base, extensions } = this.options;
 		if (base) { return resolve(base); }
 
 		const { options: compilerOptions } = compiler;
@@ -109,7 +126,13 @@ export default class WXAppPlugin {
 				return entry;
 			}
 
-			const appJSRegExp = /\bapp(\.js)?$/;
+			const extRegExpStr = extensions
+				.map((ext) => ext.replace(/\./, '\\.'))
+				.map((ext) => `(${ext})`)
+				.join('|')
+			;
+
+			const appJSRegExp = new RegExp(`\\bapp(${extRegExpStr})?$`);
 			const findAppJS = (arr) => arr.find((path) => appJSRegExp.test(path));
 
 			if (Array.isArray(entry)) {
@@ -166,8 +189,11 @@ export default class WXAppPlugin {
 	}
 
 	getFullScriptPath(path) {
-		const { base, options: { scriptExt } } = this;
-		return resolve(base, path + scriptExt);
+		const { base, options: { extensions } } = this;
+		for (const ext of extensions) {
+			const fullPath = resolve(base, path + ext);
+			if (existsSync(fullPath)) { return fullPath; }
+		}
 	}
 
 	async clear(compilation) {
@@ -186,7 +212,7 @@ export default class WXAppPlugin {
 				exclude,
 				dot,
 				assetsChunkName,
-				scriptExt,
+				extensions,
 			},
 			entryResources,
 		} = this;
@@ -211,11 +237,26 @@ export default class WXAppPlugin {
 			cwd: this.base,
 			nodir: true,
 			realpath: true,
-			ignore: [`**/*${scriptExt}`, ...exclude],
+			ignore: [
+				...extensions.map((ext) => `**/*${ext}`),
+				...exclude,
+			],
 			dot,
 		});
 
 		this.addEntries(compiler, entries, assetsChunkName);
+	}
+
+	getChunkResourceRegExp() {
+		if (this._chunkResourceRegex) { return this._chunkResourceRegex; }
+
+		const { options: { extensions } } = this;
+		const exts = extensions
+			.map((ext) => ext.replace(/\./g, '\\.'))
+			.map((ext) => `(${ext}$)`)
+			.join('|')
+		;
+		return new RegExp(exts);
 	}
 
 	applyCommonsChunk(compiler) {
@@ -230,7 +271,8 @@ export default class WXAppPlugin {
 			name: stripExt(commonModuleName),
 			minChunks: ({ resource }) => {
 				if (resource) {
-					return /\.js$/.test(resource) && scripts.indexOf(resource) < 0;
+					const regExp = this.getChunkResourceRegExp();
+					return regExp.test(resource) && scripts.indexOf(resource) < 0;
 				}
 				return false;
 			},
