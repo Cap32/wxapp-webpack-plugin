@@ -51,16 +51,25 @@ export default class WXAppPlugin {
 			dot: false, // Include `.dot` files
 			extensions: ['.js'],
 			commonModuleName: 'common.js',
-			forceTarget: true,
+			enforceTarget: true,
 			assetsChunkName: '__assets_chunk_name__',
 			// base: undefined,
 		});
+
 		deprecated(
 			this.options,
 			'scriptExt',
 			(val) => this.options.extensions.unshift(val),
 			'Option `scriptExt` is deprecated. Please use `extensions` instead',
 		);
+
+		deprecated(
+			this.options,
+			'forceTarge',
+			(val) => (this.options.enforceTarget = val),
+			'Option `forceTarge` is deprecated. Please use `enforceTarget` instead',
+		);
+
 		this.options.extensions = uniq([...this.options.extensions, '.js']);
 		this.options.include = [].concat(this.options.include);
 		this.options.exclude = [].concat(this.options.exclude);
@@ -70,7 +79,7 @@ export default class WXAppPlugin {
 		const { clear } = this.options;
 		let isFirst = true;
 
-		this.forceTarget(compiler);
+		this.enforceTarget(compiler);
 
 		compiler.plugin('run', this.try(async (compiler) => {
 			await this.run(compiler);
@@ -98,11 +107,11 @@ export default class WXAppPlugin {
 		}
 	};
 
-	forceTarget(compiler) {
-		const { forceTarget } = this.options;
+	enforceTarget(compiler) {
+		const { enforceTarget } = this.options;
 		const { options } = compiler;
 
-		if (forceTarget) {
+		if (enforceTarget) {
 			const { target } = options;
 			if (target !== Targets.Wechat && target !== Targets.Alipay) {
 				options.target = Targets.Wechat;
