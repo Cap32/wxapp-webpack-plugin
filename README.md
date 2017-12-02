@@ -76,8 +76,9 @@ export default {
 
 所有 `Options` 均为可选
 
-- `clear` (Boolean): 在启动 `webpack` 时清空 `dist` 目录。默认为 `true`
-- `commonModuleName` (String): 公共 `js` 文件名。默认为 `common.js`
+- `clear` (\<Boolean\>): 在启动 `webpack` 时清空 `dist` 目录。默认为 `true`
+- `commonModuleName` (\<String\>): 公共 `js` 文件名。默认为 `common.js`
+- `extensions` (\<Array\<String\>\>): 脚本文件后缀名。默认为 `['.js']`
 
 #### `Targets`
 
