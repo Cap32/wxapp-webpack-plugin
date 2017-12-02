@@ -2,6 +2,7 @@
 import rimraf from 'rimraf';
 import { execSync } from 'child_process';
 import { resolve } from 'path';
+import { existsSync } from 'fs-extra';
 
 const createTest = function createTest(ext) {
 	try {
@@ -31,6 +32,12 @@ const createTest = function createTest(ext) {
 
 	expect(global.App.mock.calls.length).toBe(1);
 	expect(global.Page.mock.calls.length).toBe(2);
+
+	const inImagesDir = (name) => resolve(__dirname, `dist/${ext}/images`, name);
+	expect(existsSync(inImagesDir('wechat.png'))).toBe(true);
+	expect(existsSync(inImagesDir('wechat_selected.png'))).toBe(true);
+	expect(existsSync(inImagesDir('twitter.png'))).toBe(true);
+	expect(existsSync(inImagesDir('twitter_selected.png'))).toBe(true);
 };
 
 afterEach(() => {

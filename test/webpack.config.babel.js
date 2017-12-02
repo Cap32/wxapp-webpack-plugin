@@ -27,7 +27,7 @@ export default {
 				}
 			},
 			{
-				test: /\.(wxss|wxml|json)$/,
+				test: /\.(wxss|wxml|json|png)$/,
 				include,
 				loader: 'file-loader',
 				options: {
