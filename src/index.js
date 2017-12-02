@@ -61,7 +61,7 @@ export default class WXAppPlugin {
 			(val) => this.options.extensions.unshift(val),
 			'Option `scriptExt` is deprecated. Please use `extensions` instead',
 		);
-		this.options.extensions = uniq(this.options.extensions);
+		this.options.extensions = uniq([...this.options.extensions, '.js']);
 		this.options.include = [].concat(this.options.include);
 		this.options.exclude = [].concat(this.options.exclude);
 	}
