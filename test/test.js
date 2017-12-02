@@ -25,9 +25,9 @@ const createTest = function createTest(ext) {
 	global.App = jest.fn();
 	global.Page = jest.fn();
 
-	require('./dist/app');
-	require('./dist/pages/index/index');
-	require('./dist/pages/logs/logs');
+	require(`./dist/${ext}/app`);
+	require(`./dist/${ext}/pages/index/index`);
+	require(`./dist/${ext}/pages/logs/logs`);
 
 	expect(global.App.mock.calls.length).toBe(1);
 	expect(global.Page.mock.calls.length).toBe(2);
@@ -35,20 +35,16 @@ const createTest = function createTest(ext) {
 
 afterEach(() => {
 	rimraf.sync(resolve('test/dist'));
-	Reflect.deleteProperty(global, 'wx');
-	Reflect.deleteProperty(global, 'getApp');
-	Reflect.deleteProperty(global, 'App');
-	Reflect.deleteProperty(global, 'Page');
-	delete require.cache[require.resolve('./dist/app')];
-	delete require.cache[require.resolve('./dist/pages/index/index')];
-	delete require.cache[require.resolve('./dist/pages/logs/logs')];
+	delete global.wx;
+	delete global.getApp;
+	delete global.App;
+	delete global.Page;
 });
 
 test('js', () => {
 	createTest('js');
 });
 
-// TODO
-// test('ts', () => {
-// 	createTest('ts');
-// });
+test('ts', () => {
+	createTest('ts');
+});

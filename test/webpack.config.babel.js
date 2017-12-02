@@ -4,15 +4,15 @@ import WXAppWebpackPlugin, { Targets } from '../src';
 
 const ext = process.env.TEST_EXT || 'js';
 
-const include = new RegExp(`src_${ext}`);
+const include = new RegExp('src');
 
 export default {
 	entry: {
-		app: [`./src_${ext}/utils/bomPolyfill.js`, `./src_${ext}/app`],
+		app: [`./src/${ext}/utils/bomPolyfill.js`, `./src/${ext}/app.${ext}`],
 	},
 	output: {
 		filename: '[name].js',
-		path: path.resolve(__dirname, 'dist'),
+		path: path.resolve(__dirname, 'dist', ext),
 	},
 	target: Targets.Wechat,
 	module: {
@@ -39,12 +39,12 @@ export default {
 	},
 	plugins: [
 		new WXAppWebpackPlugin({
-			scriptExt: `.${ext}`,
+			extensions: [`.${ext}`, '.js'],
 		}),
 	],
 	devtool: 'source-map',
 	resolve: {
-		modules: [`src_${ext}`, 'node_modules'],
+		modules: [`src/${ext}`, 'node_modules'],
 		extensions: ['.js', '.ts', '.json'],
 	},
 };
