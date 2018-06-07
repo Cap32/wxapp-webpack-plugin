@@ -22,7 +22,7 @@ install:
   - appveyor-retry yarn
 
   # install modules
-  - yarn i
+  - yarn
 
 
 # Post-install test scripts.
