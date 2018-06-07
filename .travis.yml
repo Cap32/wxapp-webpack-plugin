@@ -1,13 +1,14 @@
+sudo: required
+
+services:
+  - docker
+
 language: node_js
 
 node_js:
-  - "8"
-  - "7"
-  - "6"
-  - "5"
-  - "4"
+  - 8
+  - 6
+  - 4
 
 notifications:
-  email:
-    on_success: never
-    on_failure: always
+  email: false
