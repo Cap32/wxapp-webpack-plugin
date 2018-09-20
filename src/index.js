@@ -229,7 +229,7 @@ export default class WXAppPlugin {
         }
 
         for (const subPackage of subPackages) {
-            const { root, pages } = subPackage;
+            const { root, pages = [] } = subPackage;
 
             await Promise.all(pages.map(async page =>
                 await this.getComponents(components, resolve(this.base, join(root, page)))
