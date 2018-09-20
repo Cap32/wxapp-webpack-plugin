@@ -6,5 +6,6 @@
   </view>
   <view class="usermotto">
     <text class="user-motto">{{motto}}</text>
+    <view bindtap="goToSubList">go to subPackages</view>
   </view>
 </view>

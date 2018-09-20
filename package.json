@@ -6,6 +6,7 @@
     "start": "jest test --watch",
     "test": "jest test",
     "test:webpack": "cd test && webpack",
+    "test:webpack:ts": "cd test && TEST_EXT=ts webpack",
     "prebuild": "rimraf ./lib && mkdirp ./lib",
     "build:watch": "babel src -o lib/index.js -w",
     "build": "babel src -o lib/index.js",
