@@ -17,6 +17,11 @@ Page({
 			url: '../logs/logs',
 		});
 	},
+	goToSubList() {
+		wx.navigateTo({
+			url: '../product/productList',
+		});
+	},
 	onLoad() {
 
 		// await delay();

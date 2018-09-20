@@ -16,6 +16,15 @@
       "text": "日志"
     }]
   },
+  "subPackages": [
+    {
+      "root": "pages/product",
+      "pages": [
+        "productDetail",
+        "productList"
+      ]
+    }
+  ],
   "window":{
     "backgroundTextStyle":"light",
     "navigationBarBackgroundColor": "#fff",

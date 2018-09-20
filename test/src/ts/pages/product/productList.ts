@@ -8,18 +8,13 @@ const app = getApp(); // eslint-disable-line no-undef
 
 Page({
 	data: {
-		motto: 'Hello World',
+		motto: 'Hello List',
 		userInfo: {},
 	},
 	//事件处理函数
 	bindViewTap() {
 		wx.navigateTo({
-			url: '../logs/logs',
-		});
-	},
-	goToSubList() {
-		wx.navigateTo({
-			url: '../product/productList',
+			url: './productDetail',
 		});
 	},
 	onLoad() {

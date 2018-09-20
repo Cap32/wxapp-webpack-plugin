@@ -1,0 +1,7 @@
+{
+    "navigationBarTitleText": "分包明细",
+    "usingComponents": {
+      "log-component": "../../components/log-component/log-component"
+    }
+  }
+  
