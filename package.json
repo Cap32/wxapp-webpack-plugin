@@ -1,6 +1,6 @@
 {
   "name": "wxapp-webpack-plugin",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "微信小程序 Webpack 插件",
   "scripts": {
     "start": "jest test --watch",
