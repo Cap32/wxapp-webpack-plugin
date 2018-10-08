@@ -2,7 +2,8 @@
 // import { flow } from 'lodash';
 
 // const delay = (t = 0) => new Promise((resolve) => setTimeout(resolve, t));
-
+import Product from './product.service';
+const productService = new Product();
 //获取应用实例
 const app = getApp(); // eslint-disable-line no-undef
 
@@ -26,11 +27,8 @@ Page({
 		// });
 
 		// log();
-
-		//调用应用实例的方法获取全局数据
-		app.getUserInfo((userInfo) => {
-			//更新数据
-			this.setData({ userInfo });
-		});
+		this.setData({
+			productName: productService.getProductName()
+		})
 	},
 });

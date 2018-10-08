@@ -23,6 +23,13 @@
         "productDetail",
         "productList"
       ]
+    },
+    {
+      "root": "pages/product2",
+      "pages": [
+        "productDetail",
+        "productList"
+      ]
     }
   ],
   "window":{

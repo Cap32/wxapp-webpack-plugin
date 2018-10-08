@@ -1,6 +1,7 @@
 {
-    "usingComponents": {
-      "index-component": "../../components/index-component/index-component"
-    }
+  "navigationBarTitleText": "分包列表1",
+  "usingComponents": {
+    "index-component": "../../components/index-component/index-component"
   }
+}
   
