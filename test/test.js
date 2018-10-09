@@ -1,4 +1,3 @@
-
 import rimraf from 'rimraf';
 import { execSync } from 'child_process';
 import { resolve } from 'path';
@@ -14,10 +13,15 @@ const createTest = function createTest(ext) {
 				TEST_EXT: ext,
 			},
 		});
-		stdout && console.log(stdout);
-	}
-	catch (err) {
-		err.stdout && console.error(err.stdout);
+
+		if (stdout) {
+			console.log(stdout);
+		}
+	} catch (err) {
+		if (err.stdout) {
+			console.error(err.stdout);
+		}
+
 		expect(err).toBe(undefined);
 	}
 
@@ -29,11 +33,20 @@ const createTest = function createTest(ext) {
 	require(`./dist/${ext}/app`);
 	require(`./dist/${ext}/pages/index/index`);
 	require(`./dist/${ext}/pages/logs/logs`);
+	require(`./dist/${ext}/pages/product/productDetail`);
+	require(`./dist/${ext}/pages/product/productList`);
+	require(`./dist/${ext}/pages/product2/productDetail`);
+	require(`./dist/${ext}/pages/product2/productList`);
 
 	expect(global.App.mock.calls.length).toBe(1);
-	expect(global.Page.mock.calls.length).toBe(2);
+	expect(global.Page.mock.calls.length).toBe(6);
 
-	const inImagesDir = (name) => resolve(__dirname, `dist/${ext}/images`, name);
+	const getVendorPath = path => resolve(__dirname, path, 'common.js');
+	expect(existsSync(getVendorPath(`dist/${ext}/pages/product`))).toBe(true);
+	expect(existsSync(getVendorPath(`dist/${ext}/pages/product2`))).toBe(true);
+	expect(existsSync(getVendorPath(`dist/${ext}`))).toBe(true);
+
+	const inImagesDir = name => resolve(__dirname, `dist/${ext}/images`, name);
 	expect(existsSync(inImagesDir('wechat.png'))).toBe(true);
 	expect(existsSync(inImagesDir('wechat_selected.png'))).toBe(true);
 	expect(existsSync(inImagesDir('twitter.png'))).toBe(true);
