@@ -366,10 +366,13 @@ export default class WXAppPlugin {
 		const flatSubEntryResources = [].concat(...subEntryResources.map(v => v));
 		const scripts = entryResources.concat(flatSubEntryResources).map(::this.getFullScriptPath);
 
+		const isWin = scripts.findIndex(v => v.indexOf('\\') >= 0) !== -1;
 		const lastSubDirs = new Set();
 		subEntryResources.forEach((pages, index) => {
 			if (pages.length) {
-				const subDir = pages[0].slice(0, pages[0].lastIndexOf('/') + 1);
+				const subDir = isWin
+					? pages[0].slice(0, pages[0].lastIndexOf('\\') + 1)
+					: pages[0].slice(0, pages[0].lastIndexOf('/') + 1);
 
 				compiler.apply(
 					new CommonsChunkPlugin({
@@ -431,7 +434,12 @@ export default class WXAppPlugin {
 		const globalVar = target.name === 'Alipay' ? 'my' : 'wx';
 		const subEntryResources = [].concat(...this.subEntryResources.map(v => v))
 		const scripts = [].concat(this.entryResources).concat(subEntryResources);
-		const subDirs = this.subEntryResources.filter(v => v.length).map(v => v[0].slice(0, v[0].lastIndexOf('/') + 1));
+		const isWin = scripts.findIndex(v => v.indexOf('\\') >= 0) !== -1;
+		const subDirs = this.subEntryResources
+			.filter(v => v.length)
+			.map(v => isWin
+				? v[0].slice(0, v[0].lastIndexOf('\\') + 1)
+				: v[0].slice(0, v[0].lastIndexOf('/') + 1));
 
 		// inject chunk entries
 		compilation.chunkTemplate.plugin('render', (core, { name }) => {
