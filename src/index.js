@@ -397,7 +397,7 @@ export default class WXAppPlugin {
 			new CommonsChunkPlugin({
 				name: stripExt(commonModuleName),
 				minChunks: ({ resource }) => {
-					return resource.indexOf(Array.from(lastSubDirs).pop()) < 0;
+					return resource && resource.indexOf(Array.from(lastSubDirs).pop()) < 0;
 				}
 			})
 		);
