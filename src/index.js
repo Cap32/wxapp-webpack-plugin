@@ -198,7 +198,7 @@ export default class WXAppPlugin {
 		return context;
 	}
 
-	async getTabBarIcons(tabBar) {
+	getTabBarIcons(tabBar) {
 		const tabBarIcons = new Set();
 		const tabBarList = tabBar.list || [];
 		for (const tabBarItem of tabBarList) {
@@ -210,7 +210,7 @@ export default class WXAppPlugin {
 			}
 		}
 
-		this.tabBarIcons = tabBarIcons;
+		return tabBarIcons
 	}
 
 	async toEmitTabBarIcons(compilation) {
@@ -239,11 +239,9 @@ export default class WXAppPlugin {
 		});
 	}
 
-	async getEntryResource() {
-		const appJSONFile = resolve(this.base, 'app.json');
-		const { pages = [], subPackages = [], tabBar = {} } = await readJson(
-			appJSONFile
-		);
+	async getEntryResources(pages, subPackages) {
+		let subEntryResources = [];
+		let entryResources = []
 
 		const components = new Set();
 		for (const page of pages) {
@@ -251,23 +249,21 @@ export default class WXAppPlugin {
 		}
 
 		for (const subPackage of subPackages) {
-			const { root, pages = [] } = subPackage;
+			const { root, pages: subPages = [] } = subPackage;
 
-			await Promise.all(
-				pages.map(async page =>
-					this.getComponents(components, resolve(this.base, join(root, page)))
-				)
-			);
+			for (const subPage of subPages) {
+				await this.getComponents(components, resolve(this.base, join(root, subPage)));
+			}
+
+			subEntryResources.push([...subPages.map(subPage => join(root, subPage))]);
 		}
 
-		this.getTabBarIcons(tabBar);
+		entryResources = ['app', ...pages, ...components]
 
-		return [
-			'app',
-			...pages,
-			...[].concat(...subPackages.map(v => v.pages.map(w => join(v.root, w)))),
-			...components
-		];
+		return {
+			entryResources,
+			subEntryResources
+		};
 	}
 
 	async getComponents(components, instance) {
@@ -277,7 +273,9 @@ export default class WXAppPlugin {
 			)) || {};
 		const componentBase = parse(instance).dir;
 		for (const relativeComponent of values(usingComponents)) {
-			if (relativeComponent.indexOf('plugin://') === 0) continue;
+			if (relativeComponent.indexOf('plugin://') === 0) {
+				continue;
+			}
 			const component = resolve(componentBase, relativeComponent);
 			if (!components.has(component)) {
 				components.add(relative(this.base, component));
@@ -291,6 +289,7 @@ export default class WXAppPlugin {
 			base,
 			options: { extensions }
 		} = this;
+
 		for (const ext of extensions) {
 			const fullPath = resolve(base, path + ext);
 			if (existsSync(fullPath)) {
@@ -311,7 +310,8 @@ export default class WXAppPlugin {
 	async compileAssets(compiler) {
 		const {
 			options: { include, exclude, dot, assetsChunkName, extensions },
-			entryResources
+			entryResources,
+			subEntryResources
 		} = this;
 
 		compiler.plugin('compilation', compilation => {
@@ -326,6 +326,7 @@ export default class WXAppPlugin {
 		});
 
 		const patterns = entryResources
+			.concat(...subEntryResources)
 			.map(resource => `${resource}.*`)
 			.concat(include);
 
@@ -358,20 +359,45 @@ export default class WXAppPlugin {
 	applyCommonsChunk(compiler) {
 		const {
 			options: { commonModuleName },
-			entryResources
+			entryResources,
+			subEntryResources
 		} = this;
 
-		const scripts = entryResources.map(::this.getFullScriptPath);
+		const flatSubEntryResources = [].concat(...subEntryResources.map(v => v));
+		const scripts = entryResources.concat(flatSubEntryResources).map(::this.getFullScriptPath);
+
+		const isWin = scripts.findIndex(v => v.indexOf('\\') >= 0) !== -1;
+		const lastSubDirs = new Set();
+		subEntryResources.forEach((pages, index) => {
+			if (pages.length) {
+				const subDir = isWin
+					? pages[0].slice(0, pages[0].lastIndexOf('\\') + 1)
+					: pages[0].slice(0, pages[0].lastIndexOf('/') + 1);
+
+				compiler.apply(
+					new CommonsChunkPlugin({
+						name: stripExt(`${subDir}${commonModuleName}`),
+						filename: `${subDir}${commonModuleName}`,
+						minChunks: ({ resource }) => {
+							lastSubDirs.add(subDir);
+
+							if (index === 0) {
+								const regExp = this.getChunkResourceRegExp();
+								return resource && regExp.test(resource) && scripts.indexOf(resource) < 0;
+							} else {
+								return resource.indexOf(Array.from(lastSubDirs)[index - 1]) < 0;
+							}
+						},
+					})
+				);
+			}
+		});
 
 		compiler.apply(
 			new CommonsChunkPlugin({
 				name: stripExt(commonModuleName),
 				minChunks: ({ resource }) => {
-					if (resource) {
-						const regExp = this.getChunkResourceRegExp();
-						return regExp.test(resource) && scripts.indexOf(resource) < 0;
-					}
-					return false;
+					return resource && resource.indexOf(Array.from(lastSubDirs).pop()) < 0;
 				}
 			})
 		);
@@ -392,6 +418,13 @@ export default class WXAppPlugin {
 				const fullPath = this.getFullScriptPath(resource);
 				this.addScriptEntry(compiler, fullPath, resource);
 			});
+
+		this.subEntryResources.forEach(item => {
+			item.forEach(resource => {
+				const fullPath = this.getFullScriptPath(resource);
+				this.addScriptEntry(compiler, fullPath, resource);
+			});
+		});
 	}
 
 	toModifyTemplate(compilation) {
@@ -399,11 +432,25 @@ export default class WXAppPlugin {
 		const { target } = compilation.options;
 		const commonChunkName = stripExt(commonModuleName);
 		const globalVar = target.name === 'Alipay' ? 'my' : 'wx';
+		const subEntryResources = [].concat(...this.subEntryResources.map(v => v))
+		const scripts = [].concat(this.entryResources).concat(subEntryResources);
+		const isWin = scripts.findIndex(v => v.indexOf('\\') >= 0) !== -1;
+		const subDirs = this.subEntryResources
+			.filter(v => v.length)
+			.map(v => isWin
+				? v[0].slice(0, v[0].lastIndexOf('\\') + 1)
+				: v[0].slice(0, v[0].lastIndexOf('/') + 1));
 
 		// inject chunk entries
 		compilation.chunkTemplate.plugin('render', (core, { name }) => {
-			if (this.entryResources.indexOf(name) >= 0) {
-				const relativePath = relative(dirname(name), `./${commonModuleName}`);
+			if (scripts.indexOf(name) >= 0 || subDirs.find(v => name.indexOf(v) >= 0)) {
+				let relativePath;
+				if (subEntryResources.indexOf(name) >= 0) {
+					relativePath = `${commonModuleName}`
+				} else {
+					relativePath = relative(dirname(name), `./${commonModuleName}`);
+				}
+
 				const posixPath = relativePath.replace(/\\/g, '/');
 				const source = core.source();
 
@@ -437,7 +484,16 @@ export default class WXAppPlugin {
 
 	async run(compiler) {
 		this.base = this.getBase(compiler);
-		this.entryResources = await this.getEntryResource();
+
+		const appJSONFile = resolve(this.base, 'app.json');
+		const { pages = [], subPackages = [], tabBar = {} } = await readJson(appJSONFile);
+
+		this.tabBarIcons = this.getTabBarIcons(tabBar);
+
+		const { entryResources, subEntryResources } = await this.getEntryResources(pages, subPackages);
+		this.entryResources = entryResources;
+		this.subEntryResources = subEntryResources;
+
 		compiler.plugin('compilation', ::this.toModifyTemplate);
 		this.compileScripts(compiler);
 		await this.compileAssets(compiler);

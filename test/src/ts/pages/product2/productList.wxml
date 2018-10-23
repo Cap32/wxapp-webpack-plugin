@@ -1,7 +1,7 @@
 <!--index.wxml-->
 <view class="container">
   <view class="usermotto">
-    <text class="user-motto">{{motto}} productName is {{productName}}</text>
+    <text class="user-motto">{{motto}}</text>
   </view>
   <view bindtap="bindViewTap" class="userinfo">
     <view>click me and go to detail page</view>

@@ -1,5 +1,5 @@
 {
-    "navigationBarTitleText": "分包明细",
+    "navigationBarTitleText": "分包明细1",
     "usingComponents": {
       "log-component": "../../components/log-component/log-component"
     }
