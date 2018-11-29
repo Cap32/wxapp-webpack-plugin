@@ -103,7 +103,7 @@ export default class WXAppPlugin {
 		compiler.plugin(
 			'watch-run',
 			this.try(async compiler => {
-				await this.run(compiler.compiler);
+				await this.run(compiler);
 			})
 		);
 
