@@ -1,6 +1,7 @@
 import { remove, readJson, existsSync, stat, readFile } from 'fs-extra';
 import { resolve, dirname, relative, join, parse } from 'path';
-import { optimize, LoaderTargetPlugin, JsonpTemplatePlugin } from 'webpack';
+import { optimize, LoaderTargetPlugin } from 'webpack';
+import JsonpTemplatePlugin from 'webpack/lib/web/JsonpTemplatePlugin'
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
 import { defaults, values, uniq } from 'lodash';
@@ -9,7 +10,9 @@ import SingleEntryPlugin from 'webpack/lib/SingleEntryPlugin';
 import FunctionModulePlugin from 'webpack/lib/FunctionModulePlugin';
 import NodeSourcePlugin from 'webpack/lib/node/NodeSourcePlugin';
 
-const { CommonsChunkPlugin } = optimize;
+const pluginName = 'WXAppPlugin';
+
+const { SplitChunksPlugin } = optimize;
 
 const deprecated = function deprecated(obj, key, adapter, explain) {
 	if (deprecated.warned.has(key)) {
@@ -93,38 +96,70 @@ export default class WXAppPlugin {
 
 		this.enforceTarget(compiler);
 
-		compiler.plugin(
-			'run',
-			this.try(async compiler => {
-				await this.run(compiler);
-			})
-		);
+		if (compiler.hooks) {
+			compiler.hooks.run.tapAsync(pluginName,
+				this.try(async compilation => {
+					await this.run(compiler);
+				})
+			);
 
-		compiler.plugin(
-			'watch-run',
-			this.try(async compiler => {
-				await this.run(compiler.compiler);
-			})
-		);
+			compiler.hooks.watchRun.tapAsync(pluginName,
+				this.try(async compiler => {
+					await this.run(compiler);
+				})
+			);
 
-		compiler.plugin(
-			'emit',
-			this.try(async compilation => {
-				if (clear && isFirst) {
-					isFirst = false;
-					await this.clear(compilation);
-				}
+			compiler.hooks.emit.tapAsync(pluginName,
+				this.try(async compilation => {
+					if (clear && isFirst) {
+						isFirst = false;
+						await this.clear(compilation);
+					}
 
-				await this.toEmitTabBarIcons(compilation);
-			})
-		);
+					await this.toEmitTabBarIcons(compilation);
+				})
+			);
 
-		compiler.plugin(
-			'after-emit',
-			this.try(async compilation => {
-				await this.toAddTabBarIconsDependencies(compilation);
-			})
-		);
+			compiler.hooks.afterEmit.tapAsync(pluginName,
+				this.try(async compilation => {
+					await this.toAddTabBarIconsDependencies(compilation);
+				})
+			);
+		}
+		else {
+			compiler.plugin(
+				'run',
+				this.try(async compiler => {
+					await this.run(compiler);
+				})
+			);
+
+			compiler.plugin(
+				'watch-run',
+				this.try(async compiler => {
+					await this.run(compiler.compiler);
+				})
+			);
+
+			compiler.plugin(
+				'emit',
+				this.try(async compilation => {
+					if (clear && isFirst) {
+						isFirst = false;
+						await this.clear(compilation);
+					}
+
+					await this.toEmitTabBarIcons(compilation);
+				})
+			);
+
+			compiler.plugin(
+				'after-emit',
+				this.try(async compilation => {
+					await this.toAddTabBarIconsDependencies(compilation);
+				})
+			);
+		}
 	}
 
 	try = handler => async (arg, callback) => {
@@ -238,7 +273,7 @@ export default class WXAppPlugin {
 	toAddTabBarIconsDependencies(compilation) {
 		const { fileDependencies } = compilation;
 		this.tabBarIcons.forEach(iconPath => {
-			if (!~fileDependencies.indexOf(iconPath)) {
+			if (!~fileDependencies.has(iconPath)) {
 				fileDependencies.push(iconPath);
 			}
 		});
@@ -319,16 +354,25 @@ export default class WXAppPlugin {
 			entryResources
 		} = this;
 
-		compiler.plugin('compilation', compilation => {
-			compilation.plugin('before-chunk-assets', () => {
-				const assetsChunkIndex = compilation.chunks.findIndex(
-					({ name }) => name === assetsChunkName
-				);
-				if (assetsChunkIndex > -1) {
-					compilation.chunks.splice(assetsChunkIndex, 1);
-				}
+		const beforeChunkAssetsHandler = compilation => () => {
+			const assetsChunkIndex = compilation.chunks.findIndex(
+				({ name }) => name === assetsChunkName
+			);
+			if (assetsChunkIndex > -1) {
+				compilation.chunks.splice(assetsChunkIndex, 1)
+			}
+		};
+
+		if (compiler.hooks) {
+			compiler.hooks.compilation.tap(pluginName, compilation => {
+				compilation.hooks.beforeChunkAssets.tap(pluginName, beforeChunkAssetsHandler(compilation));
 			});
-		});
+		}
+		else {
+			compiler.plugin('compilation', compilation => {
+				compilation.plugin('before-chunk-assets', beforeChunkAssetsHandler(compilation));
+			});
+		}
 
 		const patterns = entryResources
 			.map(resource => `${resource}.*`)
@@ -368,25 +412,33 @@ export default class WXAppPlugin {
 
 		const scripts = entryResources.map(::this.getFullScriptPath);
 
-		compiler.apply(
-			new CommonsChunkPlugin({
-				name: stripExt(commonModuleName),
-				minChunks: ({ resource }) => {
-					if (resource) {
-						const regExp = this.getChunkResourceRegExp();
-						return regExp.test(resource) && scripts.indexOf(resource) < 0;
-					}
-					return false;
+		const applyOpt = {
+			name: stripExt(commonModuleName),
+			minChunks: ({ resource }) => {
+				if (resource) {
+					const regExp = this.getChunkResourceRegExp();
+					return regExp.test(resource) && scripts.indexOf(resource) < 0;
 				}
-			})
+				return false;
+			}
+		};
+
+		compiler.apply(
+			new SplitChunksPlugin(applyOpt)
 		);
 	}
 
 	addScriptEntry(compiler, entry, name) {
-		compiler.plugin('make', (compilation, callback) => {
-			const dep = SingleEntryPlugin.createDependency(entry, name);
-			compilation.addEntry(this.base, dep, name, callback);
-		});
+		const makeHandler = (compilation, callback) => {
+			const dep = SingleEntryPlugin.createDependency(entry, name)
+			compilation.addEntry(this.base, dep, name, callback)
+		};
+		if (compiler.hooks) {
+			compiler.hooks.make.tapAsync(pluginName, makeHandler);
+		}
+		else {
+			compiler.plugin('make', makeHandler);
+		}
 	}
 
 	compileScripts(compiler) {
@@ -405,45 +457,68 @@ export default class WXAppPlugin {
 		const commonChunkName = stripExt(commonModuleName);
 		const globalVar = target.name === 'Alipay' ? 'my' : 'wx';
 
-		// inject chunk entries
-		compilation.chunkTemplate.plugin('render', (core, { name }) => {
+		const renderHandler = (core, { name }) => {
 			if (this.entryResources.indexOf(name) >= 0) {
-				const relativePath = relative(dirname(name), `./${commonModuleName}`);
-				const posixPath = relativePath.replace(/\\/g, '/');
-				const source = core.source();
+				const relativePath = relative(dirname(name), `./${commonModuleName}`)
+				const posixPath = relativePath.replace(/\\/g, '/')
+				const source = core.source()
 
 				// eslint-disable-next-line max-len
-				const injectContent = `; function webpackJsonp() { require("./${posixPath}"); ${globalVar}.webpackJsonp.apply(null, arguments); }`;
+				const injectContent = `; function webpackJsonp() { require("./${posixPath}"); ${globalVar}.webpackJsonp.apply(null, arguments); }`
 
 				if (source.indexOf(injectContent) < 0) {
-					const concatSource = new ConcatSource(core);
-					concatSource.add(injectContent);
-					return concatSource;
+					const concatSource = new ConcatSource(core)
+					concatSource.add(injectContent)
+					return concatSource
 				}
 			}
-			return core;
-		});
+			return core
+		};
 
-		// replace `window` to `global` in common chunk
-		compilation.mainTemplate.plugin('bootstrap', (source, chunk) => {
-			const windowRegExp = new RegExp('window', 'g');
+		const bootstrapHandler = (source, chunk) => {
+			const windowRegExp = new RegExp('window', 'g')
 			if (chunk.name === commonChunkName) {
-				return source.replace(windowRegExp, globalVar);
+				return source.replace(windowRegExp, globalVar)
 			}
-			return source;
-		});
+			return source
+		};
 
-		// override `require.ensure()`
-		compilation.mainTemplate.plugin(
-			'require-ensure',
-			() => 'throw new Error("Not chunk loading available");'
-		);
+		// inject chunk entries
+		if (compilation.chunkTemplate.hooks) {
+			// inject chunk entries
+			compilation.chunkTemplate.hooks.render.tap(pluginName, renderHandler);
+
+			// replace `window` to `global` in common chunk
+			compilation.mainTemplate.hooks.bootstrap.tap(pluginName, bootstrapHandler);
+
+			// override `require.ensure()`
+			compilation.mainTemplate.hooks.requireEnsure.tap(pluginName,
+				() => 'throw new Error("Not chunk loading available");'
+			);
+		}
+		else {
+			compilation.chunkTemplate.plugin('render', renderHandler);
+
+			// replace `window` to `global` in common chunk
+			compilation.mainTemplate.plugin('bootstrap', bootstrapHandler);
+
+			// override `require.ensure()`
+			compilation.mainTemplate.plugin(
+				'require-ensure',
+				() => 'throw new Error("Not chunk loading available");'
+			);
+		}
 	}
 
 	async run(compiler) {
 		this.base = this.getBase(compiler);
 		this.entryResources = await this.getEntryResource();
-		compiler.plugin('compilation', ::this.toModifyTemplate);
+		if (compiler.hooks) {
+			compiler.hooks.compilation.tap(pluginName, ::this.toModifyTemplate);
+		}
+		else {
+			compiler.plugin('compilation', ::this.toModifyTemplate);
+		}
 		this.compileScripts(compiler);
 		await this.compileAssets(compiler);
 	}
