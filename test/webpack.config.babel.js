@@ -28,6 +28,7 @@ export default {
 			},
 			{
 				test: /\.(wxss|wxml|json|png)$/,
+				type: 'javascript/auto',
 				include,
 				loader: 'file-loader',
 				options: {
