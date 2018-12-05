@@ -3,7 +3,7 @@ import { resolve, dirname, relative, join, parse } from 'path';
 import { optimize, LoaderTargetPlugin, JsonpTemplatePlugin } from 'webpack';
 import { ConcatSource } from 'webpack-sources';
 import globby from 'globby';
-import { defaults, values, uniq } from 'lodash';
+import { defaults, values, uniq, find } from 'lodash';
 import MultiEntryPlugin from 'webpack/lib/MultiEntryPlugin';
 import SingleEntryPlugin from 'webpack/lib/SingleEntryPlugin';
 import FunctionModulePlugin from 'webpack/lib/FunctionModulePlugin';
@@ -283,7 +283,10 @@ export default class WXAppPlugin {
 		const componentBase = parse(instance).dir;
 		for (const relativeComponent of values(usingComponents)) {
 			if (relativeComponent.indexOf('plugin://') === 0) continue;
-			const component = resolve(componentBase, relativeComponent);
+			let component = resolve(componentBase, relativeComponent);
+			if (this.isExternalComponent(relativeComponent)) {
+				component = resolve(this.base, relativeComponent.replace('../../components/', '../node_modules/'));
+			}
 			if (!components.has(component)) {
 				components.add(relative(this.base, component));
 				await this.getComponents(components, component);
@@ -384,6 +387,13 @@ export default class WXAppPlugin {
 
 	addScriptEntry(compiler, entry, name) {
 		compiler.plugin('make', (compilation, callback) => {
+			if (this.options.externalComponents && this.options.externalComponents.length > 0) {
+				// change name since name will be used in the output path
+				const prefix = '../node_modules/';
+				if (name.startsWith(prefix)) {
+					name = name.replace(prefix, 'components/');
+				}
+			}
 			const dep = SingleEntryPlugin.createDependency(entry, name);
 			compilation.addEntry(this.base, dep, name, callback);
 		});
@@ -407,7 +417,7 @@ export default class WXAppPlugin {
 
 		// inject chunk entries
 		compilation.chunkTemplate.plugin('render', (core, { name }) => {
-			if (this.entryResources.indexOf(name) >= 0) {
+			if (this.entryResources.indexOf(name) >= 0 || this.isExternalComponent(name)) {
 				const relativePath = relative(dirname(name), `./${commonModuleName}`);
 				const posixPath = relativePath.replace(/\\/g, '/');
 				const source = core.source();
@@ -438,6 +448,10 @@ export default class WXAppPlugin {
 			'require-ensure',
 			() => 'throw new Error("Not chunk loading available");'
 		);
+	}
+
+	isExternalComponent(name) {
+		return !!find(this.options.externalComponents, component => name.indexOf(`/${component}/`) !== -1);
 	}
 
 	async run(compiler) {
