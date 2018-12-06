@@ -64,7 +64,9 @@ export default class WXAppPlugin {
 			extensions: ['.js'],
 			commonModuleName: 'common.js',
 			enforceTarget: true,
-			assetsChunkName: '__assets_chunk_name__'
+			assetsChunkName: '__assets_chunk_name__',
+			externalComponents: [],
+			externalComponentsDirectory: undefined,
 			// base: undefined,
 		});
 
@@ -285,7 +287,7 @@ export default class WXAppPlugin {
 			if (relativeComponent.indexOf('plugin://') === 0) continue;
 			let component = resolve(componentBase, relativeComponent);
 			if (this.isExternalComponent(relativeComponent)) {
-				component = resolve(this.base, relativeComponent.replace('../../components/', '../node_modules/'));
+				component = resolve(this.base, relativeComponent.replace('../../components/', this.options.externalComponentsDirectory));
 			}
 			if (!components.has(component)) {
 				components.add(relative(this.base, component));
@@ -387,11 +389,10 @@ export default class WXAppPlugin {
 
 	addScriptEntry(compiler, entry, name) {
 		compiler.plugin('make', (compilation, callback) => {
-			if (this.options.externalComponents && this.options.externalComponents.length > 0) {
+			if (Array.isArray(this.options.externalComponents) && this.options.externalComponents.length > 0) {
 				// change name since name will be used in the output path
-				const prefix = '../node_modules/';
-				if (name.startsWith(prefix)) {
-					name = name.replace(prefix, 'components/');
+				if (name.startsWith(this.options.externalComponentsDirectory)) {
+					name = name.replace(this.options.externalComponentsDirectory, 'components/');
 				}
 			}
 			const dep = SingleEntryPlugin.createDependency(entry, name);
