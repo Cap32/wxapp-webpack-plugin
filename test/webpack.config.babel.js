@@ -35,11 +35,30 @@ export default {
 					name: '[name].[ext]',
 				}
 			},
+			{
+				test: /\.(wxss|wxml|json|png)$/,
+				include: /node_modules/,
+				loader: 'file-loader',
+				options: {
+					useRelativePath: false,
+					name: (filePath) => {
+						const flag = 'node_modules/';
+						const index = filePath.indexOf(flag);
+						if (index !== -1) {
+							const targetPath = filePath.substring(index + flag.length).split('.')[0];
+							return `./components/${targetPath}.[ext]`;
+						}
+						return `[name].[ext]`;
+					},
+				}
+			},
 		],
 	},
 	plugins: [
 		new WXAppWebpackPlugin({
 			extensions: [`.${ext}`, '.js'],
+			externalComponents: ['iview-weapp'],
+			externalComponentsDirectory: '../../../node_modules/',
 		}),
 	],
 	devtool: 'source-map',

@@ -81,6 +81,8 @@ export default {
 - `clear` (\<Boolean\>): 在启动 `webpack` 时清空 `dist` 目录。默认为 `true`
 - `commonModuleName` (\<String\>): 公共 `js` 文件名。默认为 `common.js`
 - `extensions` (\<Array\<String\>\>): 脚本文件后缀名。默认为 `['.js']`
+- `externalComponents` (\<Array\<String\>\>): 引用的外部组件名称。默认为 `[]`
+- `externalComponentsDirectory` (\<String\>): 外部组件所在相对目录。默认为 `undefined`
 
 #### `Targets`
 
