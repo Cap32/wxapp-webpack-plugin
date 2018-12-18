@@ -246,11 +246,16 @@ export default class WXAppPlugin {
 
 	async getEntryResource() {
 		const appJSONFile = resolve(this.base, 'app.json');
-		const { pages = [], subPackages = [], tabBar = {} } = await readJson(
+		const { pages = [], subPackages = [], tabBar = {}, usingComponents = {} } = await readJson(
 			appJSONFile
 		);
 
 		const components = new Set();
+
+		for (const relativeComponent of values(usingComponents)) {
+			await this.addComponent(components, relativeComponent, parse(appJSONFile).dir);
+		}
+
 		for (const page of pages) {
 			await this.getComponents(components, resolve(this.base, page));
 		}
@@ -282,12 +287,16 @@ export default class WXAppPlugin {
 			)) || {};
 		const componentBase = parse(instance).dir;
 		for (const relativeComponent of values(usingComponents)) {
-			if (relativeComponent.indexOf('plugin://') === 0) continue;
-			const component = resolve(componentBase, relativeComponent);
-			if (!components.has(component)) {
-				components.add(relative(this.base, component));
-				await this.getComponents(components, component);
-			}
+			await this.addComponent(components, relativeComponent, componentBase);
+		}
+	}
+
+	async addComponent(components, relativeComponent, componentBase) {
+		if (relativeComponent.indexOf('plugin://') === 0) return;
+		const component = resolve(componentBase, relativeComponent);
+		if (!components.has(component)) {
+			components.add(relative(this.base, component));
+			await this.getComponents(components, component);
 		}
 	}
 
