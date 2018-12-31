@@ -142,7 +142,7 @@ export default class WXAppPlugin {
 
 		if (enforceTarget) {
 			const { target } = options;
-			if (target !== Targets.Wechat && target !== Targets.Alipay) {
+			if (target !== Targets.Wechat && target !== Targets.Alipay && target !== Targets.Baidu) {
 				options.target = Targets.Wechat;
 			}
 			if (!options.node || options.node.global) {
@@ -403,7 +403,7 @@ export default class WXAppPlugin {
 		const { commonModuleName } = this.options;
 		const { target } = compilation.options;
 		const commonChunkName = stripExt(commonModuleName);
-		const globalVar = target.name === 'Alipay' ? 'my' : 'wx';
+		const globalVar = target.name === 'Wechat' ? 'wx' : target.name === 'Alipay' ? 'my' : 'swan';
 
 		// inject chunk entries
 		compilation.chunkTemplate.plugin('render', (core, { name }) => {
