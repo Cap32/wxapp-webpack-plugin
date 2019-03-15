@@ -395,7 +395,12 @@ export default class WXAppPlugin {
 			.filter(resource => resource !== 'app')
 			.forEach(resource => {
 				const fullPath = this.getFullScriptPath(resource);
-				this.addScriptEntry(compiler, fullPath, resource);
+				if (typeof fullPath === 'undefined') {
+					throw new Error(`ENOENT: no such file or directory, '${resource}'`);
+				}
+				else {
+					this.addScriptEntry(compiler, fullPath, resource);
+				}
 			});
 	}
 
